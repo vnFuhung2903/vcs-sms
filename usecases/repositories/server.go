@@ -7,25 +7,25 @@ import (
 	"gorm.io/gorm"
 )
 
-type ServerRepository interface {
+type IServerRepository interface {
 	FindById(serverId string) (*entities.Server, error)
 	Filter(filter *entities.ServerFilter, from int, to int, sortOpt entities.ServerSort) ([]*entities.Server, error)
 	Create(serverId string, serverName string, ipv4 string) (*entities.Server, error)
-	// Update(server *entities.Server) error
+	// Update(server *entities.Server, serverId string, updateData map[string]interface{}) error
 	Delete(serverId string) error
 }
 
 type serverRepository struct {
-	Db *gorm.DB
+	db *gorm.DB
 }
 
-func NewServerRepository(db *gorm.DB) ServerRepository {
-	return &serverRepository{Db: db}
+func NewServerRepository(db *gorm.DB) IServerRepository {
+	return &serverRepository{db: db}
 }
 
 func (ur *serverRepository) FindById(serverId string) (*entities.Server, error) {
 	var server entities.Server
-	res := ur.Db.First(&server, entities.Server{ServerId: serverId})
+	res := ur.db.First(&server, entities.Server{ServerId: serverId})
 	if res.Error != nil {
 		return nil, res.Error
 	}
@@ -34,7 +34,7 @@ func (ur *serverRepository) FindById(serverId string) (*entities.Server, error) 
 
 func (ur *serverRepository) Filter(filter *entities.ServerFilter, from int, to int, sortOpt entities.ServerSort) ([]*entities.Server, error) {
 	var servers []*entities.Server
-	query := ur.Db.Model(&entities.Server{})
+	query := ur.db.Model(&entities.Server{})
 
 	if filter.ServerId != nil {
 		query = query.Where("server_id = ?", *filter.ServerId)
@@ -63,19 +63,14 @@ func (ur *serverRepository) Create(serverId string, serverName string, ipv4 stri
 		ServerName: serverName,
 		Ipv4:       ipv4,
 	}
-	res := ur.Db.Create(newServer)
+	res := ur.db.Create(newServer)
 	if res.Error != nil {
 		return nil, res.Error
 	}
 	return newServer, nil
 }
 
-// func (ur *serverRepository) Update(server *entities.Server, email string) error {
-// 	res := ur.Db.Model(server).Update("email", email)
-// 	return res.Error
-// }
-
 func (ur *serverRepository) Delete(serverId string) error {
-	res := ur.Db.Delete(&entities.Server{ServerId: serverId})
+	res := ur.db.Delete(&entities.Server{ServerId: serverId})
 	return res.Error
 }
