@@ -6,7 +6,7 @@ import (
 
 type Server struct {
 	ServerId   string       `gorm:"primaryKey"`
-	Status     ServerStatus `gorm:"type:enum('ON','OFF');default:'ON'"`
+	Status     ServerStatus `gorm:"type:enum('ON','OFF')"`
 	CreatedAt  time.Time    `gorm:"autoCreateTime"`
 	UpdatedAt  time.Time    `gorm:"autoUpdateTime"`
 	ServerName string       `gorm:"unique"`
@@ -14,10 +14,10 @@ type Server struct {
 }
 
 type ServerFilter struct {
-	ServerId   *string
-	Status     *ServerStatus
-	ServerName *string
-	Ipv4       *string
+	ServerId   string
+	Status     ServerStatus
+	ServerName string
+	Ipv4       string
 }
 
 type ServerSort struct {

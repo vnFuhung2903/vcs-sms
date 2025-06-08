@@ -2,6 +2,7 @@ package logger
 
 import (
 	"os"
+	"sync"
 
 	"github.com/vnFuhung2903/vcs-sms/pkg/env"
 	"go.uber.org/zap"
@@ -9,27 +10,50 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var Log *zap.Logger
+type ILogger interface {
+	Debug(msg string, fields ...zap.Field)
+	Info(msg string, fields ...zap.Field)
+	Warn(msg string, fields ...zap.Field)
+	Error(msg string, fields ...zap.Field)
+	Fatal(msg string, fields ...zap.Field)
+	Sync() error
+	With(fields ...zap.Field) ILogger
+}
 
-func Load(env *env.LoggerEvn) error {
+type Logger struct {
+	logger *zap.Logger
+}
+
+var (
+	once sync.Once
+)
+
+func LoadLogger(env *env.LoggerEvn) (logger *Logger, err error) {
+	once.Do(func() {
+		logger, err = initLogger(env)
+	})
+	return logger, err
+}
+
+func initLogger(env *env.LoggerEvn) (*Logger, error) {
 	level, err := zapcore.ParseLevel(env.Level)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := os.MkdirAll("./logs", 0755); err != nil {
-		return err
+		return nil, err
 	}
 
-	lumberjackLogger := &lumberjack.Logger{
+	writer := zapcore.AddSync(&lumberjack.Logger{
 		Filename:   env.FilePath,
 		MaxSize:    env.MaxSize,
 		MaxAge:     env.MaxAge,
 		MaxBackups: env.MaxBackups,
 		Compress:   true,
-	}
+	})
 
-	encoderConfig := zapcore.EncoderConfig{
+	encoderCfg := zapcore.EncoderConfig{
 		TimeKey:        "timestamp",
 		LevelKey:       "level",
 		NameKey:        "logger",
@@ -44,50 +68,38 @@ func Load(env *env.LoggerEvn) error {
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
-	fileCore := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
-		zapcore.AddSync(lumberjackLogger),
-		level,
-	)
-
-	consoleCore := zapcore.NewCore(
-		zapcore.NewConsoleEncoder(encoderConfig),
-		zapcore.AddSync(os.Stdout),
-		level,
-	)
-
+	fileCore := zapcore.NewCore(zapcore.NewJSONEncoder(encoderCfg), writer, level)
+	consoleCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), zapcore.AddSync(os.Stdout), level)
 	core := zapcore.NewTee(fileCore, consoleCore)
 
-	Log = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
-	return nil
+	logger := &Logger{logger: zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))}
+	return logger, nil
 }
 
-func Sync() error {
-	return Log.Sync()
+func (l *Logger) Debug(msg string, fields ...zap.Field) {
+	l.logger.Debug(msg, fields...)
 }
 
-func WithContext(fields ...zap.Field) *zap.Logger {
-	return Log.With(fields...)
+func (l *Logger) Info(msg string, fields ...zap.Field) {
+	l.logger.Info(msg, fields...)
 }
 
-func Error(msg string, err error, fields ...zap.Field) {
-	fields = append(fields, zap.Error(err))
-	Log.Error(msg, fields...)
+func (l *Logger) Warn(msg string, fields ...zap.Field) {
+	l.logger.Warn(msg, fields...)
 }
 
-func Info(msg string, fields ...zap.Field) {
-	Log.Info(msg, fields...)
+func (l *Logger) Error(msg string, fields ...zap.Field) {
+	l.logger.Error(msg, fields...)
 }
 
-func Debug(msg string, fields ...zap.Field) {
-	Log.Debug(msg, fields...)
+func (l *Logger) Fatal(msg string, fields ...zap.Field) {
+	l.logger.Fatal(msg, fields...)
 }
 
-func Warn(msg string, fields ...zap.Field) {
-	Log.Warn(msg, fields...)
+func (l *Logger) Sync() error {
+	return l.logger.Sync()
 }
 
-func Fatal(msg string, err error, fields ...zap.Field) {
-	fields = append(fields, zap.Error(err))
-	Log.Fatal(msg, fields...)
+func (l *Logger) With(fields ...zap.Field) ILogger {
+	return &Logger{logger: l.logger.With(fields...)}
 }

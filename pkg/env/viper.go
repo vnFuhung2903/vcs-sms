@@ -22,7 +22,7 @@ type Env struct {
 	LoggerEvn   LoggerEvn
 }
 
-func LoadConfig(path string) (env Env, err error) {
+func LoadEnv(path string) (env Env, err error) {
 	v := viper.New()
 	v.AddConfigPath(path)
 	v.SetConfigName(".env")
