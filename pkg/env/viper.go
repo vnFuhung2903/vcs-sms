@@ -2,11 +2,10 @@ package env
 
 import "github.com/spf13/viper"
 
-type DatabaseEnv struct {
-	PostgresUser       string `mapstructure:"POSTGRES_USER"`
-	PostgresPassword   string `mapstructure:"POSTGRES_PASSWORD"`
-	PostgresName       string `mapstructure:"POSTGRES_NAME"`
-	KafkaBrokerAddress string `mapstructure:"KAFKA_BROKER_ADDRESS"`
+type PostgresEnv struct {
+	PostgresUser     string `mapstructure:"POSTGRES_USER"`
+	PostgresPassword string `mapstructure:"POSTGRES_PASSWORD"`
+	PostgresName     string `mapstructure:"POSTGRES_NAME"`
 }
 
 type LoggerEvn struct {
@@ -18,23 +17,31 @@ type LoggerEvn struct {
 }
 
 type Env struct {
-	DatabaseEnv DatabaseEnv
+	PostgresEnv PostgresEnv
 	LoggerEvn   LoggerEvn
 }
 
-func LoadEnv(path string) (env Env, err error) {
+func LoadEnv(path string) (*Env, error) {
 	v := viper.New()
 	v.AddConfigPath(path)
 	v.SetConfigName(".env")
 	v.SetConfigType("env")
-
 	v.AutomaticEnv()
 
-	err = v.ReadInConfig()
-	if err != nil {
-		return
+	if err := v.ReadInConfig(); err != nil {
+		return nil, err
 	}
 
-	err = v.Unmarshal(&env)
-	return
+	var loggerEnv LoggerEvn
+	var postgresEnv PostgresEnv
+	if err := v.Unmarshal(&loggerEnv); err != nil {
+		return nil, err
+	}
+	if err := v.Unmarshal(&postgresEnv); err != nil {
+		return nil, err
+	}
+	return &Env{
+		PostgresEnv: postgresEnv,
+		LoggerEvn:   loggerEnv,
+	}, nil
 }

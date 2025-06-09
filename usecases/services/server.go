@@ -10,13 +10,16 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
+	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 )
 
 type IServerService interface {
 	Create(ctx context.Context, serverID string, serverName string, status entities.ServerStatus, ipv4 string) (*entities.Server, error)
 	View(ctx context.Context, serverFilter entities.ServerFilter, from int, to int, sortOpt entities.ServerSort) ([]*entities.Server, int64, error)
-	Update(ctx context.Context, serverId string, updateData map[string]interface{}) error
+	Update(ctx context.Context, serverId string, updateData map[string]any) error
+	Import(ctx context.Context, file multipart.File) (*ImportResult, error)
+	Export(ctx context.Context, filter entities.ServerFilter, from int, to int, sort entities.ServerSort) ([]byte, error)
 	Delete(ctx context.Context, serverID string) error
 }
 
@@ -68,14 +71,18 @@ func (s *ServerService) View(ctx context.Context, filter entities.ServerFilter, 
 	return servers, total, nil
 }
 
-func (s *ServerService) Update(ctx context.Context, serverId string, updateData map[string]interface{}) error {
+func (s *ServerService) Update(ctx context.Context, serverId string, updateData map[string]any) error {
 	tx, err := s.serverRepo.BeginTransaction(ctx)
 	if err != nil {
 		s.logger.Error("failed to begin transaction", zap.Error(err))
 		return err
 	}
+	commited := false
 	defer func() {
-		if re := recover(); re != nil {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+		if !commited {
 			tx.Rollback()
 		}
 	}()
@@ -98,15 +105,15 @@ func (s *ServerService) Update(ctx context.Context, serverId string, updateData 
 	}
 
 	s.logger.Info("server updated successfully", zap.String("serverID", serverId))
+	commited = true
 	return nil
 }
 
 func (s *ServerService) Delete(ctx context.Context, serverID string) error {
-	err := s.serverRepo.Delete(serverID)
-	if err != nil {
+	if err := s.serverRepo.Delete(serverID); err != nil {
 		s.logger.Error("failed to delete server", zap.Error(err))
 	}
-	return err
+	return nil
 }
 
 func (s *ServerService) Import(ctx context.Context, file multipart.File) (*ImportResult, error) {
@@ -134,58 +141,24 @@ func (s *ServerService) Import(ctx context.Context, file multipart.File) (*Impor
 			continue
 		}
 
-		serverID := strings.TrimSpace(row[0])
+		serverId := strings.TrimSpace(row[0])
 		serverName := strings.TrimSpace(row[1])
 		status := strings.TrimSpace(row[2])
 		ipv4 := strings.TrimSpace(row[3])
 
-		if serverID == "" || serverName == "" || ipv4 == "" {
+		if serverId == "" || serverName == "" || ipv4 == "" {
 			result.FailureCount++
-			result.FailedServers = append(result.FailedServers, serverID)
+			result.FailedServers = append(result.FailedServers, serverId)
 			continue
 		}
 
-		tx, err := s.serverRepo.BeginTransaction(ctx)
+		err = s._importServer(ctx, serverId, serverName, entities.ServerStatus(status), ipv4)
 		if err != nil {
-			s.logger.Error("failed to begin transaction", zap.Error(err))
-			return nil, err
-		}
-		defer func() {
-			if re := recover(); re != nil {
-				tx.Rollback()
-			}
-		}()
-		serverRepo := s.serverRepo.WithTransaction(tx)
-
-		existed, err := serverRepo.FindById(serverID)
-		if err != nil {
-			s.logger.Error("failed to find server by id", zap.Error(err))
-			return nil, err
-		}
-		existed, err = serverRepo.FindByName(serverName)
-		if err != nil {
-			s.logger.Error("failed to find server by name", zap.Error(err))
-			return nil, err
-		}
-
-		if existed == nil {
-			if status == "" {
-				status = "OFF"
-			}
-			_, err = s.Create(ctx, serverID, serverName, entities.ServerStatus(status), ipv4)
-			if err != nil {
-				result.FailureCount++
-				result.FailedServers = append(result.FailedServers, serverID)
-				continue
-			}
-
+			result.FailureCount++
+			result.FailedServers = append(result.FailedServers, serverId)
+		} else {
 			result.SuccessCount++
-			result.SuccessServers = append(result.SuccessServers, serverID)
-		}
-		err = tx.Commit().Error
-		if err != nil {
-			s.logger.Error("failed to commit transaction", zap.Error(err))
-			return nil, err
+			result.SuccessServers = append(result.SuccessServers, serverId)
 		}
 	}
 	s.logger.Info("servers imported successfully")
@@ -232,4 +205,54 @@ func (s *ServerService) Export(ctx context.Context, filter entities.ServerFilter
 	}
 	s.logger.Info("servers exported successfully")
 	return buf.Bytes(), nil
+}
+
+func (s *ServerService) _importServer(ctx context.Context, serverId string, serverName string, status entities.ServerStatus, ipv4 string) error {
+	tx, err := s.serverRepo.BeginTransaction(ctx)
+	if err != nil {
+		s.logger.Error("failed to begin transaction", zap.Error(err))
+		return err
+	}
+	commited := false
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+		if !commited {
+			tx.Rollback()
+		}
+	}()
+	serverRepo := s.serverRepo.WithTransaction(tx)
+
+	existed, err := serverRepo.FindById(serverId)
+	if err != nil {
+		s.logger.Error("failed to find server by id", zap.Error(err))
+		return err
+	}
+	if existed == nil {
+		existed, err = serverRepo.FindByName(serverName)
+		if err != nil {
+			s.logger.Error("failed to find server by name", zap.Error(err))
+			return err
+		}
+	}
+
+	if existed == nil {
+		if status == "" {
+			status = "OFF"
+		}
+		_, err = serverRepo.Create(serverId, serverName, entities.ServerStatus(status), ipv4)
+		if err != nil {
+			s.logger.Error("failed to create server", zap.Error(err))
+			return err
+		}
+	}
+
+	err = tx.Commit().Error
+	if err != nil {
+		s.logger.Error("failed to commit transaction", zap.Error(err))
+		return err
+	}
+	commited = true
+	return nil
 }

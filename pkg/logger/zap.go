@@ -28,14 +28,14 @@ var (
 	once sync.Once
 )
 
-func LoadLogger(env *env.LoggerEvn) (logger *Logger, err error) {
+func LoadLogger(env env.LoggerEvn) (logger *Logger, err error) {
 	once.Do(func() {
 		logger, err = initLogger(env)
 	})
 	return logger, err
 }
 
-func initLogger(env *env.LoggerEvn) (*Logger, error) {
+func initLogger(env env.LoggerEvn) (*Logger, error) {
 	level, err := zapcore.ParseLevel(env.Level)
 	if err != nil {
 		return nil, err

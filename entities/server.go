@@ -6,7 +6,7 @@ import (
 
 type Server struct {
 	ServerId   string       `gorm:"primaryKey"`
-	Status     ServerStatus `gorm:"type:enum('ON','OFF')"`
+	Status     ServerStatus `gorm:"type:varchar(10)"`
 	CreatedAt  time.Time    `gorm:"autoCreateTime"`
 	UpdatedAt  time.Time    `gorm:"autoUpdateTime"`
 	ServerName string       `gorm:"unique"`

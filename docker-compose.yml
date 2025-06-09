@@ -13,69 +13,69 @@ services:
       - 5432:5432
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4
-    restart: always
-    container_name: hungnp25_es
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: -Xms512m -Xmx512m
-    networks:
-      - hungnp25_network
-    ports:
-      - 9200:9200
-      - 9300:9300
-    volumes:
-      - ./data/elasticsearch:/usr/share/elasticsearch/data
-  logstash:
-    image: docker.elastic.co/logstash/logstash:8.11.4
-    restart: always
-    container_name: hungnp25_logstash
-    environment:
-      ES_JAVA_OPTS: -Xms512m -Xmx512m
-      KAFKA_BROKER_ADDRESS: ${KAFKA_BROKER_ADDRESS}
-      LS_PIPELINE_BATCH_SIZE: 500
-      LS_PIPELINE_BATCH_DELAY: 300
-    networks:
-      - hungnp25_network
-    ports:
-      - "5044:5044"
-    volumes:
-      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
-    depends_on:
-      - elasticsearch
-      - kafka
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    restart: always
-    container_name: hungnp25_zoo
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - hungnp25_network
-    ports:
-      - "2181:2181"
-  kafka:
-    image: confluentinc/cp-kafka:latest
-    restart: always
-    container_name: hungnp25_kafka
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA_BROKER_ADDRESS}:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-    networks:
-      - hungnp25_network
-    ports:
-      - "9092:9092"
-    depends_on:
-      - zookeeper
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4
+  #   restart: always
+  #   container_name: hungnp25_es
+  #   environment:
+  #     discovery.type: single-node
+  #     xpack.security.enabled: "false"
+  #     ES_JAVA_OPTS: -Xms512m -Xmx512m
+  #   networks:
+  #     - hungnp25_network
+  #   ports:
+  #     - 9200:9200
+  #     - 9300:9300
+  #   volumes:
+  #     - ./data/elasticsearch:/usr/share/elasticsearch/data
+  # logstash:
+  #   image: docker.elastic.co/logstash/logstash:8.11.4
+  #   restart: always
+  #   container_name: hungnp25_logstash
+  #   environment:
+  #     ES_JAVA_OPTS: -Xms512m -Xmx512m
+  #     KAFKA_BROKER_ADDRESS: ${KAFKA_BROKER_ADDRESS}
+  #     LS_PIPELINE_BATCH_SIZE: 500
+  #     LS_PIPELINE_BATCH_DELAY: 300
+  #   networks:
+  #     - hungnp25_network
+  #   ports:
+  #     - "5044:5044"
+  #   volumes:
+  #     - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+  #   depends_on:
+  #     - elasticsearch
+  #     - kafka
+  # zookeeper:
+  #   image: confluentinc/cp-zookeeper:latest
+  #   restart: always
+  #   container_name: hungnp25_zoo
+  #   environment:
+  #     ZOOKEEPER_CLIENT_PORT: 2181
+  #     ZOOKEEPER_TICK_TIME: 2000
+  #   networks:
+  #     - hungnp25_network
+  #   ports:
+  #     - "2181:2181"
+  # kafka:
+  #   image: confluentinc/cp-kafka:latest
+  #   restart: always
+  #   container_name: hungnp25_kafka
+  #   environment:
+  #     KAFKA_BROKER_ID: 1
+  #     KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+  #     KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA_BROKER_ADDRESS}:9092
+  #     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  #     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+  #     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+  #   networks:
+  #     - hungnp25_network
+  #   ports:
+  #     - "9092:9092"
+  #   depends_on:
+  #     - zookeeper
 networks:
   hungnp25_network:
     driver: bridge

@@ -13,7 +13,7 @@ type IServerRepository interface {
 	FindByName(serverName string) (*entities.Server, error)
 	View(filter entities.ServerFilter, from int, limit int, sortOpt entities.ServerSort) ([]*entities.Server, int64, error)
 	Create(serverId string, serverName string, status entities.ServerStatus, ipv4 string) (*entities.Server, error)
-	Update(server *entities.Server, updateData map[string]interface{}) error
+	Update(server *entities.Server, updateData map[string]any) error
 	Delete(serverId string) error
 	BeginTransaction(ctx context.Context) (*gorm.DB, error)
 	WithTransaction(tx *gorm.DB) IServerRepository
@@ -86,7 +86,7 @@ func (r *serverRepository) Create(serverId string, serverName string, status ent
 	return newServer, nil
 }
 
-func (r *serverRepository) Update(server *entities.Server, updateData map[string]interface{}) error {
+func (r *serverRepository) Update(server *entities.Server, updateData map[string]any) error {
 	res := r.db.Model(server).Updates(updateData)
 	return res.Error
 }
