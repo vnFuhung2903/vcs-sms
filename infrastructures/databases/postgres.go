@@ -17,8 +17,7 @@ func ConnectPostgresDb(env env.PostgresEnv) *gorm.DB {
 		log.Fatalf("Postgres connection error: %v", err)
 	}
 
-	err = db.AutoMigrate(&entities.Server{})
-	if err != nil {
+	if err := db.AutoMigrate(&entities.Container{}); err != nil {
 		log.Fatalf("Migrate error: %v", err)
 	}
 	return db

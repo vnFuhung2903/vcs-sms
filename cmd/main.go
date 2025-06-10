@@ -24,13 +24,13 @@ func main() {
 	}
 
 	postgresDb := databases.ConnectPostgresDb(env.PostgresEnv)
-	serverRepository := repositories.NewServerRepository(postgresDb)
-	serverService := services.NewServerService(serverRepository, logger)
-	serverHandler := api.NewServerHandler(serverService)
+	containerRepository := repositories.NewContainerRepository(postgresDb)
+	containerService := services.NewContainerService(containerRepository, logger)
+	containerHandler := api.NewContainerHandler(containerService)
 
 	r := gin.Default()
-	serverHandler.SetupRoutes(r)
+	containerHandler.SetupRoutes(r)
 	if err := r.Run(":8080"); err != nil {
-		log.Fatalf("Failed to run server: %v", err)
+		log.Fatalf("Failed to run container: %v", err)
 	}
 }
