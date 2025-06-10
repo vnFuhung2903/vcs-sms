@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -25,11 +26,30 @@ type ContainerSort struct {
 	Sort  SortOrder
 }
 
+var sortField = map[string]bool{
+	"container_id":   true,
+	"container_name": true,
+	"status":         true,
+	"ipv4":           true,
+	"created_at":     true,
+	"updated_at":     true,
+}
+
+func ValidateSort(sort ContainerSort) error {
+	if !sortField[sort.Field] {
+		return fmt.Errorf("invalid sort field")
+	}
+	if sort.Sort != Asc && sort.Sort != Dsc {
+		return fmt.Errorf("invalid sort order: %s", sort.Sort)
+	}
+	return nil
+}
+
 type SortOrder string
 
 const (
-	Asc SortOrder = "ASC"
-	Dsc SortOrder = "DESC"
+	Asc SortOrder = "asc"
+	Dsc SortOrder = "desc"
 )
 
 type ContainerStatus string

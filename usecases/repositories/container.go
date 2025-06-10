@@ -11,7 +11,7 @@ import (
 type IContainerRepository interface {
 	FindById(containerId string) (*entities.Container, error)
 	FindByName(containerName string) (*entities.Container, error)
-	View(filter entities.ContainerFilter, from int, limit int, sortOpt entities.ContainerSort) ([]*entities.Container, int64, error)
+	View(filter entities.ContainerFilter, from int, limit int, sort entities.ContainerSort) ([]*entities.Container, int64, error)
 	Create(containerId string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error)
 	Update(container *entities.Container, updateData map[string]any) error
 	Delete(containerId string) error

@@ -71,6 +71,11 @@ func (h *ContainerHandler) View(c *gin.Context) {
 		return
 	}
 
+	if err := entities.ValidateSort(sort); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sort params: " + err.Error()})
+		return
+	}
+
 	containers, total, err := h.containerService.View(c.Request.Context(), filter, from, to, sort)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -134,6 +139,11 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindQuery(&sort); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sort params: " + err.Error()})
+		return
+	}
+
+	if err := entities.ValidateSort(sort); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sort params: " + err.Error()})
 		return
 	}

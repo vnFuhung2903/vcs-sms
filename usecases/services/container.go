@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"strings"
+	"time"
 
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
@@ -177,7 +178,7 @@ func (s *ContainerService) Export(ctx context.Context, filter entities.Container
 	}
 
 	f := excelize.NewFile()
-	sheetName := "Containers"
+	sheetName := time.Now().Format(time.DateOnly)
 	f.SetSheetName("Sheet1", sheetName)
 
 	headers := []string{"Container ID", "Container Name", "Status", "IPv4", "Created At"}
