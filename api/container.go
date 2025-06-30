@@ -29,9 +29,9 @@ func (h *ContainerHandler) SetupRoutes(r *gin.Engine) {
 	containerRoutes := r.Group("/containers")
 	{
 		containerRoutes.POST("/create", h.Create)
-		containerRoutes.GET("", h.View)
-		containerRoutes.PUT("/:id", h.Update)
-		containerRoutes.DELETE("/:id", h.Delete)
+		containerRoutes.GET("/view", h.View)
+		containerRoutes.PUT("/update/:id", h.Update)
+		containerRoutes.DELETE("/delete/:id", h.Delete)
 		containerRoutes.POST("/import", h.Import)
 		containerRoutes.GET("/export", h.Export)
 	}
@@ -52,11 +52,10 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"created_at": container.CreatedAt.Format(time.RFC3339),
 	})
-
 }
 
 func (h *ContainerHandler) View(c *gin.Context) {
-	from, _ := strconv.Atoi(c.DefaultQuery("from", "0"))
+	from, _ := strconv.Atoi(c.DefaultQuery("from", "1"))
 	to, _ := strconv.Atoi(c.DefaultQuery("to", "10"))
 
 	var filter entities.ContainerFilter

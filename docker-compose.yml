@@ -34,7 +34,6 @@ services:
   #   container_name: hungnp25_logstash
   #   environment:
   #     ES_JAVA_OPTS: -Xms512m -Xmx512m
-  #     KAFKA_BROKER_ADDRESS: ${KAFKA_BROKER_ADDRESS}
   #     LS_PIPELINE_BATCH_SIZE: 500
   #     LS_PIPELINE_BATCH_DELAY: 300
   #   networks:
@@ -45,7 +44,6 @@ services:
   #     - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
   #   depends_on:
   #     - elasticsearch
-  #     - kafka
 networks:
   hungnp25_network:
     driver: bridge

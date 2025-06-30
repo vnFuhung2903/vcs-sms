@@ -55,12 +55,12 @@ func (s *ContainerService) Create(ctx context.Context, containerID string, conta
 }
 
 func (s *ContainerService) View(ctx context.Context, filter entities.ContainerFilter, from int, to int, sort entities.ContainerSort) ([]*entities.Container, int64, error) {
-	limit := to - from + 1
-	if from < 1 || limit < 1 {
+	if from < 1 {
 		err := fmt.Errorf("invalid range")
 		s.logger.Error("failed to view containers", zap.Error(err))
 		return nil, 0, err
 	}
+	limit := max(to-from+1, 1)
 
 	containers, total, err := s.containerRepo.View(filter, from, limit, sort)
 	if err != nil {
