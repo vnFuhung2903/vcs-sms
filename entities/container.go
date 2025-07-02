@@ -1,7 +1,6 @@
 package entities
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -14,16 +13,20 @@ type Container struct {
 	Ipv4          string          `gorm:"unique"`
 }
 
+type ContainerUpdate struct {
+	Status ContainerStatus `json:"status"`
+}
+
 type ContainerFilter struct {
-	ContainerId   string
-	Status        ContainerStatus
-	ContainerName string
-	Ipv4          string
+	ContainerId   string          `form:"container_id"`
+	Status        ContainerStatus `form:"status"`
+	ContainerName string          `form:"container_name"`
+	Ipv4          string          `form:"ipv4"`
 }
 
 type ContainerSort struct {
-	Field string
-	Sort  SortOrder
+	Field string    `form:"field"`
+	Sort  SortOrder `form:"order"`
 }
 
 var sortField = map[string]bool{
@@ -35,14 +38,15 @@ var sortField = map[string]bool{
 	"updated_at":     true,
 }
 
-func ValidateSort(sort ContainerSort) error {
+func StandardizeSort(sort ContainerSort) ContainerSort {
+	var standardizedSort ContainerSort
 	if !sortField[sort.Field] {
-		return fmt.Errorf("invalid sort field")
+		standardizedSort.Field = "container_id"
 	}
-	if sort.Sort != Asc && sort.Sort != Dsc {
-		return fmt.Errorf("invalid sort order: %s", sort.Sort)
+	if sort.Sort != Asc {
+		standardizedSort.Sort = Dsc
 	}
-	return nil
+	return standardizedSort
 }
 
 type SortOrder string

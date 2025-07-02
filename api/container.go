@@ -70,11 +70,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 		return
 	}
 
-	if err := entities.ValidateSort(sort); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sort params: " + err.Error()})
-		return
-	}
-
+	sort = entities.StandardizeSort(sort)
 	containers, total, err := h.containerService.View(c.Request.Context(), filter, from, to, sort)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -86,7 +82,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 func (h *ContainerHandler) Update(c *gin.Context) {
 	containerID := c.Param("id")
 
-	var updateData map[string]any
+	var updateData entities.ContainerUpdate
 	if err := c.ShouldBindJSON(&updateData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -127,7 +123,7 @@ func (h *ContainerHandler) Import(c *gin.Context) {
 }
 
 func (h *ContainerHandler) Export(c *gin.Context) {
-	from, _ := strconv.Atoi(c.DefaultQuery("from", "0"))
+	from, _ := strconv.Atoi(c.DefaultQuery("from", "1"))
 	to, _ := strconv.Atoi(c.DefaultQuery("to", "10"))
 
 	var filter entities.ContainerFilter
@@ -142,15 +138,13 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 		return
 	}
 
-	if err := entities.ValidateSort(sort); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sort params: " + err.Error()})
-		return
-	}
-
+	sort = entities.StandardizeSort(sort)
 	data, err := h.containerService.Export(c.Request.Context(), filter, from, to, sort)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.Data(http.StatusOK, "application/octet-stream", data)
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Disposition", `attachment; filename="containers.xlsx"`)
+	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", data)
 }

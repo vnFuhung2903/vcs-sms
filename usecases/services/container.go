@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"strings"
@@ -13,12 +14,13 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type IContainerService interface {
 	Create(ctx context.Context, containerID string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error)
 	View(ctx context.Context, containerFilter entities.ContainerFilter, from int, to int, sortOpt entities.ContainerSort) ([]*entities.Container, int64, error)
-	Update(ctx context.Context, containerId string, updateData map[string]any) error
+	Update(ctx context.Context, containerId string, updateData entities.ContainerUpdate) error
 	Import(ctx context.Context, file multipart.File) (*ImportResult, error)
 	Export(ctx context.Context, filter entities.ContainerFilter, from int, to int, sort entities.ContainerSort) ([]byte, error)
 	Delete(ctx context.Context, containerID string) error
@@ -32,7 +34,7 @@ type ContainerService struct {
 type ImportResult struct {
 	SuccessCount      int      `json:"success_count"`
 	SuccessContainers []string `json:"success_containers"`
-	FailureCount      int      `json:"failure_count"`
+	FailedCount       int      `json:"failed_count"`
 	FailedContainers  []string `json:"failed_containers"`
 }
 
@@ -72,7 +74,7 @@ func (s *ContainerService) View(ctx context.Context, filter entities.ContainerFi
 	return containers, total, nil
 }
 
-func (s *ContainerService) Update(ctx context.Context, containerId string, updateData map[string]any) error {
+func (s *ContainerService) Update(ctx context.Context, containerId string, updateData entities.ContainerUpdate) error {
 	tx, err := s.containerRepo.BeginTransaction(ctx)
 	if err != nil {
 		s.logger.Error("failed to begin transaction", zap.Error(err))
@@ -146,13 +148,13 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*Im
 		ipv4 := strings.TrimSpace(row[3])
 
 		if containerId == "" || containerName == "" || ipv4 == "" {
-			result.FailureCount++
+			result.FailedCount++
 			result.FailedContainers = append(result.FailedContainers, containerId)
 			continue
 		}
 
 		if err := s._importContainer(ctx, containerId, containerName, entities.ContainerStatus(status), ipv4); err != nil {
-			result.FailureCount++
+			result.FailedCount++
 			result.FailedContainers = append(result.FailedContainers, containerId)
 			continue
 		}
@@ -164,12 +166,12 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*Im
 }
 
 func (s *ContainerService) Export(ctx context.Context, filter entities.ContainerFilter, from int, to int, sort entities.ContainerSort) ([]byte, error) {
-	limit := to - from + 1
-	if from < 1 || limit < 1 {
+	if from < 1 {
 		err := fmt.Errorf("invalid range")
 		s.logger.Error("failed to view containers", zap.Error(err))
 		return nil, err
 	}
+	limit := max(to-from+1, 1)
 
 	containers, _, err := s.containerRepo.View(filter, from, limit, sort)
 	if err != nil {
@@ -193,7 +195,7 @@ func (s *ContainerService) Export(ctx context.Context, filter entities.Container
 		f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), container.ContainerName)
 		f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), container.Status)
 		f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), container.Ipv4)
-		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), container.CreatedAt.Format("2006-01-02 15:04:05"))
+		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), container.CreatedAt.Format(time.RFC3339))
 	}
 
 	var buf bytes.Buffer
@@ -223,13 +225,13 @@ func (s *ContainerService) _importContainer(ctx context.Context, containerId str
 	containerRepo := s.containerRepo.WithTransaction(tx)
 
 	existed, err := containerRepo.FindById(containerId)
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		s.logger.Error("failed to find container by id", zap.Error(err))
 		return err
 	}
 	if existed == nil {
 		existed, err = containerRepo.FindByName(containerName)
-		if err != nil {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Error("failed to find container by name", zap.Error(err))
 			return err
 		}

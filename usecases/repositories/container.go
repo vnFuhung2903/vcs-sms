@@ -13,7 +13,7 @@ type IContainerRepository interface {
 	FindByName(containerName string) (*entities.Container, error)
 	View(filter entities.ContainerFilter, from int, limit int, sort entities.ContainerSort) ([]*entities.Container, int64, error)
 	Create(containerId string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error)
-	Update(container *entities.Container, updateData map[string]any) error
+	Update(container *entities.Container, updateData entities.ContainerUpdate) error
 	Delete(containerId string) error
 	BeginTransaction(ctx context.Context) (*gorm.DB, error)
 	WithTransaction(tx *gorm.DB) IContainerRepository
@@ -89,7 +89,7 @@ func (r *containerRepository) Create(containerId string, containerName string, s
 	return newContainer, nil
 }
 
-func (r *containerRepository) Update(container *entities.Container, updateData map[string]any) error {
+func (r *containerRepository) Update(container *entities.Container, updateData entities.ContainerUpdate) error {
 	res := r.db.Model(container).Updates(updateData)
 	return res.Error
 }
