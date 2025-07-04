@@ -18,7 +18,7 @@ func main() {
 		log.Fatalf("Failed to retrieve env: %v", err)
 	}
 
-	logger, err := logger.LoadLogger(env.LoggerEvn)
+	logger, err := logger.LoadLogger(env.LoggerEnv)
 	if err != nil {
 		log.Fatalf("Failed to init logger: %v", err)
 	}

@@ -8,7 +8,7 @@ type PostgresEnv struct {
 	PostgresName     string `mapstructure:"POSTGRES_NAME"`
 }
 
-type LoggerEvn struct {
+type LoggerEnv struct {
 	Level      string `mapstructure:"ZAP_LEVEL"`
 	FilePath   string `mapstructure:"ZAP_FILEPATH"`
 	MaxSize    int    `mapstructure:"ZAP_MAXSIZE"`
@@ -18,7 +18,7 @@ type LoggerEvn struct {
 
 type Env struct {
 	PostgresEnv PostgresEnv
-	LoggerEvn   LoggerEvn
+	LoggerEnv   LoggerEnv
 }
 
 func LoadEnv(path string) (*Env, error) {
@@ -32,7 +32,7 @@ func LoadEnv(path string) (*Env, error) {
 		return nil, err
 	}
 
-	var loggerEnv LoggerEvn
+	var loggerEnv LoggerEnv
 	var postgresEnv PostgresEnv
 	if err := v.Unmarshal(&loggerEnv); err != nil {
 		return nil, err
@@ -42,6 +42,6 @@ func LoadEnv(path string) (*Env, error) {
 	}
 	return &Env{
 		PostgresEnv: postgresEnv,
-		LoggerEvn:   loggerEnv,
+		LoggerEnv:   loggerEnv,
 	}, nil
 }
