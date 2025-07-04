@@ -2,7 +2,6 @@ package services
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
@@ -10,9 +9,11 @@ import (
 )
 
 type IUserService interface {
-	Register(username, password, email string) (*entities.User, error)
+	Register(username, password, email string, role entities.UserRole, scopes int64) (*entities.User, error)
 	Login(username, password string) (*entities.User, error)
 	UpdatePassword(userId, password string) error
+	UpdateRole(userId string, role entities.UserRole) error
+	UpdateScope(userId string, scopes int64) error
 	Delete(userId string) error
 }
 
@@ -24,10 +25,10 @@ func NewUserService(userRepo repositories.IUserRepository) IUserService {
 	return &userService{userRepo: userRepo}
 }
 
-func (s *userService) Register(username, password, email string) (*entities.User, error) {
+func (s *userService) Register(username, password, email string, role entities.UserRole, scopes int64) (*entities.User, error) {
 	existing, _ := s.userRepo.FindByName(username)
 	if existing != nil {
-		return nil, fmt.Errorf("username already taken")
+		return nil, errors.New("username already taken")
 	}
 
 	hash, err := hashes.HashPassword(password)
@@ -35,7 +36,7 @@ func (s *userService) Register(username, password, email string) (*entities.User
 		return nil, err
 	}
 
-	return s.userRepo.Create(username, hash, email)
+	return s.userRepo.Create(username, hash, email, role, scopes)
 }
 
 func (s *userService) Login(username, password string) (*entities.User, error) {
@@ -63,6 +64,22 @@ func (s *userService) UpdatePassword(userId, password string) error {
 	}
 
 	return s.userRepo.UpdatePassword(user, hash)
+}
+
+func (s *userService) UpdateRole(userId string, role entities.UserRole) error {
+	user, err := s.userRepo.FindById(userId)
+	if err != nil {
+		return err
+	}
+	return s.userRepo.UpdateRole(user, role)
+}
+
+func (s *userService) UpdateScope(userId string, scopes int64) error {
+	user, err := s.userRepo.FindById(userId)
+	if err != nil {
+		return err
+	}
+	return s.userRepo.UpdateScope(user, scopes)
 }
 
 func (s *userService) Delete(userId string) error {

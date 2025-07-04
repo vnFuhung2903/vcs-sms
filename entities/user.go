@@ -6,17 +6,17 @@ import (
 
 type User struct {
 	gorm.Model
-	ID       string    `gorm:"primaryKey"`
-	Username string    `gorm:"type:varchar(100);unique;not null"`
-	Hash     string    `gorm:"type:varchar(255);not null"`
-	Scope    UserScope `gorm:"type:varchar(10);not null"`
-	Email    string    `gorm:"type:varchar(100);unique;not null"`
+	ID       string   `gorm:"primaryKey"`
+	Username string   `gorm:"type:varchar(100);unique;not null"`
+	Hash     string   `gorm:"type:varchar(255);not null"`
+	Role     UserRole `gorm:"type:varchar(10);not null"`
+	Email    string   `gorm:"type:varchar(100);unique;not null"`
+	Scopes   int64    `gorm:"not null;default:0"`
 }
 
-type UserScope string
+type UserRole string
 
 const (
-	Admin UserScope = "admin"
-	Read  UserScope = "read"
-	Write UserScope = "write"
+	Manager   UserRole = "manager"
+	Developer UserRole = "developer"
 )

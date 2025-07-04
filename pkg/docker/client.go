@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -62,7 +63,7 @@ func (c *DockerClient) Create(ctx context.Context, name string, imageName string
 
 	networkSettings, ok := inspect.NetworkSettings.Networks["bridge"]
 	if !ok {
-		return nil, fmt.Errorf("cannot inspect container's address")
+		return nil, errors.New("cannot inspect container's address")
 	}
 
 	var status string
@@ -87,7 +88,7 @@ func (c *DockerClient) HealthCheck(ctx context.Context, id string) error {
 	}
 	networkInfo, ok := inspect.NetworkSettings.Networks["bridge"]
 	if !ok {
-		return fmt.Errorf("cannot find bridge network")
+		return errors.New("cannot find bridge network")
 	}
 	containerIP := networkInfo.IPAddress
 	url := fmt.Sprintf("http://%s/", containerIP)

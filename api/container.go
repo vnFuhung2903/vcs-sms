@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
+	"github.com/vnFuhung2903/vcs-sms/utils/middlewares"
 )
 
 type ContainerHandler struct {
@@ -28,12 +29,27 @@ type CreateRequest struct {
 func (h *ContainerHandler) SetupRoutes(r *gin.Engine) {
 	containerRoutes := r.Group("/containers")
 	{
-		containerRoutes.POST("/create", h.Create)
-		containerRoutes.GET("/view", h.View)
-		containerRoutes.PUT("/update/:id", h.Update)
-		containerRoutes.DELETE("/delete/:id", h.Delete)
-		containerRoutes.POST("/import", h.Import)
-		containerRoutes.GET("/export", h.Export)
+		createGroup := containerRoutes.Group("", middlewares.RequireScope("container:create"))
+		{
+			createGroup.POST("/create", h.Create)
+			createGroup.POST("/import", h.Import)
+		}
+
+		viewGroup := containerRoutes.Group("", middlewares.RequireScope("container:view"))
+		{
+			viewGroup.GET("/view", h.View)
+			viewGroup.GET("/export", h.Export)
+		}
+
+		modifyGroup := containerRoutes.Group("", middlewares.RequireScope("container:update"))
+		{
+			modifyGroup.PUT("/update/:id", h.Update)
+		}
+
+		deleteGroup := containerRoutes.Group("", middlewares.RequireScope("container:delete"))
+		{
+			deleteGroup.DELETE("/delete/:id", h.Delete)
+		}
 	}
 }
 

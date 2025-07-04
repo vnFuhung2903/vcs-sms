@@ -58,7 +58,7 @@ func (s *ContainerService) Create(ctx context.Context, containerID string, conta
 
 func (s *ContainerService) View(ctx context.Context, filter entities.ContainerFilter, from int, to int, sort entities.ContainerSort) ([]*entities.Container, int64, error) {
 	if from < 1 {
-		err := fmt.Errorf("invalid range")
+		err := errors.New("invalid range")
 		s.logger.Error("failed to view containers", zap.Error(err))
 		return nil, 0, err
 	}
@@ -167,7 +167,7 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*Im
 
 func (s *ContainerService) Export(ctx context.Context, filter entities.ContainerFilter, from int, to int, sort entities.ContainerSort) ([]byte, error) {
 	if from < 1 {
-		err := fmt.Errorf("invalid range")
+		err := errors.New("invalid range")
 		s.logger.Error("failed to view containers", zap.Error(err))
 		return nil, err
 	}

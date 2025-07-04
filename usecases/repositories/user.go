@@ -10,8 +10,10 @@ import (
 type IUserRepository interface {
 	FindById(userId string) (*entities.User, error)
 	FindByName(username string) (*entities.User, error)
-	Create(username, hash, email string) (*entities.User, error)
+	Create(username, hash, email string, role entities.UserRole, scopes int64) (*entities.User, error)
 	UpdatePassword(user *entities.User, hash string) error
+	UpdateRole(user *entities.User, role entities.UserRole) error
+	UpdateScope(user *entities.User, scopes int64) error
 	Delete(userId string) error
 	BeginTransaction(ctx context.Context) (*gorm.DB, error)
 	WithTransaction(tx *gorm.DB) IUserRepository
@@ -43,11 +45,13 @@ func (r *userRepository) FindByName(username string) (*entities.User, error) {
 	return &user, nil
 }
 
-func (r *userRepository) Create(username, hash, email string) (*entities.User, error) {
+func (r *userRepository) Create(username, hash, email string, role entities.UserRole, scopes int64) (*entities.User, error) {
 	newUser := &entities.User{
 		Username: username,
 		Hash:     hash,
 		Email:    email,
+		Role:     role,
+		Scopes:   scopes,
 	}
 	res := r.db.Create(newUser)
 	if res.Error != nil {
@@ -58,6 +62,14 @@ func (r *userRepository) Create(username, hash, email string) (*entities.User, e
 
 func (r *userRepository) UpdatePassword(user *entities.User, hash string) error {
 	return r.db.Model(user).Update("hash", hash).Error
+}
+
+func (r *userRepository) UpdateRole(user *entities.User, role entities.UserRole) error {
+	return r.db.Model(user).Update("role", role).Error
+}
+
+func (r *userRepository) UpdateScope(user *entities.User, scopes int64) error {
+	return r.db.Model(user).Update("scopes", scopes).Error
 }
 
 func (r *userRepository) Delete(userId string) error {
