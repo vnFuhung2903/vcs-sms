@@ -53,6 +53,18 @@ func (h *ContainerHandler) SetupRoutes(r *gin.Engine) {
 	}
 }
 
+// Create godoc
+// @Summary Create new container
+// @Description Create a container with ID, name, status, and IPv4
+// @Tags containers
+// @Accept json
+// @Produce json
+// @Param body body CreateRequest true "Container creation request"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} entities.ErrorResponse
+// @Failure 500 {object} entities.ErrorResponse
+// @Security ApiKeyAuth
+// @Router /containers/create [post]
 func (h *ContainerHandler) Create(c *gin.Context) {
 	var req CreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -70,6 +82,21 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 	})
 }
 
+// View godoc
+// @Summary View containers
+// @Description View container list with pagination, filter, and sort
+// @Tags containers
+// @Produce json
+// @Param from query int false "From index (default 1)"
+// @Param to query int false "To index (default 10)"
+// @Param status query string false "Filter by status"
+// @Param sort_by query string false "Sort by field"
+// @Param sort_order query string false "Sort order (asc or desc)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} entities.ErrorResponse
+// @Failure 500 {object} entities.ErrorResponse
+// @Security ApiKeyAuth
+// @Router /containers/view [get]
 func (h *ContainerHandler) View(c *gin.Context) {
 	from, _ := strconv.Atoi(c.DefaultQuery("from", "1"))
 	to, _ := strconv.Atoi(c.DefaultQuery("to", "10"))
@@ -95,6 +122,18 @@ func (h *ContainerHandler) View(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": containers, "total": total})
 }
 
+// Update godoc
+// @Summary Update a container
+// @Description Update container information by ID
+// @Tags containers
+// @Accept json
+// @Param id path string true "Container ID"
+// @Param body body entities.ContainerUpdate true "Update data"
+// @Success 200
+// @Failure 400 {object} entities.ErrorResponse
+// @Failure 500 {object} entities.ErrorResponse
+// @Security ApiKeyAuth
+// @Router /containers/update/{id} [put]
 func (h *ContainerHandler) Update(c *gin.Context) {
 	containerID := c.Param("id")
 
@@ -112,6 +151,15 @@ func (h *ContainerHandler) Update(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+// Delete godoc
+// @Summary Delete a container
+// @Description Delete a container by ID
+// @Tags containers
+// @Param id path string true "Container ID"
+// @Success 200
+// @Failure 500 {object} entities.ErrorResponse
+// @Security ApiKeyAuth
+// @Router /containers/delete/{id} [delete]
 func (h *ContainerHandler) Delete(c *gin.Context) {
 	containerID := c.Param("id")
 	err := h.containerService.Delete(c.Request.Context(), containerID)
@@ -122,6 +170,18 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+// Import godoc
+// @Summary Import containers from file
+// @Description Import containers using an Excel file upload
+// @Tags containers
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} entities.ErrorResponse
+// @Failure 500 {object} entities.ErrorResponse
+// @Security ApiKeyAuth
+// @Router /containers/import [post]
 func (h *ContainerHandler) Import(c *gin.Context) {
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
@@ -138,6 +198,21 @@ func (h *ContainerHandler) Import(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// Export godoc
+// @Summary Export containers
+// @Description Export containers to Excel with optional filters and sort
+// @Tags containers
+// @Produce application/octet-stream
+// @Param from query int false "From index (default 1)"
+// @Param to query int false "To index (default 10)"
+// @Param status query string false "Filter by status"
+// @Param sort_by query string false "Sort by field"
+// @Param sort_order query string false "Sort order (asc or desc)"
+// @Success 200 {file} file
+// @Failure 400 {object} entities.ErrorResponse
+// @Failure 500 {object} entities.ErrorResponse
+// @Security ApiKeyAuth
+// @Router /containers/export [get]
 func (h *ContainerHandler) Export(c *gin.Context) {
 	from, _ := strconv.Atoi(c.DefaultQuery("from", "1"))
 	to, _ := strconv.Atoi(c.DefaultQuery("to", "10"))

@@ -38,6 +38,17 @@ func (h *UserHandler) SetupRoutes(r *gin.Engine) {
 	}
 }
 
+// Register godoc
+// @Summary Register a new user
+// @Description Register a user and return a JWT token
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param body body struct{Username string json:"username"; Password string json:"password"; Email string json:"email"; Role string json:"role"} true "User registration"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /users/register [post]
 func (h *UserHandler) Register(c *gin.Context) {
 	var req struct {
 		Username string `json:"username"`
@@ -67,6 +78,18 @@ func (h *UserHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user, "token": token})
 }
 
+// Login godoc
+// @Summary Login with username and password
+// @Description Login and receive JWT token
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param body body struct{Username string json:"username"; Password string json:"password"} true "User login"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /users/login [post]
 func (h *UserHandler) Login(c *gin.Context) {
 	var req struct {
 		Username string `json:"username"`
@@ -93,6 +116,19 @@ func (h *UserHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user, "token": token})
 }
 
+// UpdatePassword godoc
+// @Summary Update own password
+// @Description Update password of currently logged-in user
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param body body struct{Password string json:"password"} true "New password"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /users/update/password/{id} [put]
 func (h *UserHandler) UpdatePassword(c *gin.Context) {
 	userId := c.GetString("userId")
 	var req struct {
@@ -112,6 +148,19 @@ func (h *UserHandler) UpdatePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password updated"})
 }
 
+// UpdateRole godoc
+// @Summary Update a user's role
+// @Description Update role of a user (admin only)
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param body body struct{Role string json:"role"} true "New role"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /users/update/role/{id} [put]
 func (h *UserHandler) UpdateRole(c *gin.Context) {
 	userId := c.GetString("userId")
 	var req struct {
@@ -131,6 +180,19 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Role updated"})
 }
 
+// UpdateScope godoc
+// @Summary Update a user's scope
+// @Description Update permission scope of a user (admin only)
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param body body struct{Scopes int64 json:"scope"} true "New scope bitmap"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /users/update/scope/{id} [put]
 func (h *UserHandler) UpdateScope(c *gin.Context) {
 	userId := c.GetString("userId")
 	var req struct {
@@ -150,6 +212,16 @@ func (h *UserHandler) UpdateScope(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Scope updated"})
 }
 
+// Delete godoc
+// @Summary Delete a user
+// @Description Remove a user from the system (admin only)
+// @Tags users
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} map[string]string
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /users/delete/{id} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
 	userId := c.GetString("userId")
 
