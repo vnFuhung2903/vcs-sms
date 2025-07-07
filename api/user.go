@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
 	"github.com/vnFuhung2903/vcs-sms/utils/middlewares"
@@ -45,9 +46,9 @@ func (h *UserHandler) SetupRoutes(r *gin.Engine) {
 // @Accept json
 // @Produce json
 // @Param body body struct{Username string json:"username"; Password string json:"password"; Email string json:"email"; Role string json:"role"} true "User registration"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
 // @Router /users/register [post]
 func (h *UserHandler) Register(c *gin.Context) {
 	var req struct {
@@ -58,24 +59,21 @@ func (h *UserHandler) Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	scopes := middlewares.UserRoleToDefaultScopes(entities.UserRole(req.Role))
-	user, err := h.userService.Register(req.Username, req.Password, req.Email, entities.UserRole(req.Role), middlewares.ScopeHashMap(scopes))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	scopes := middlewares.UserRoleToDefaultScopes(entities.UserRole(req.Role), nil)
+	if err := h.userService.Register(req.Username, req.Password, req.Email, entities.UserRole(req.Role), middlewares.ScopeToHashMap(scopes)); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	token, err := middlewares.GenerateJWT(user.ID, user.Username, scopes)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"user": user, "token": token})
+	c.Status(http.StatusOK)
 }
 
 // Login godoc
@@ -85,10 +83,10 @@ func (h *UserHandler) Register(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param body body struct{Username string json:"username"; Password string json:"password"} true "User login"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
 // @Router /users/login [post]
 func (h *UserHandler) Login(c *gin.Context) {
 	var req struct {
@@ -97,23 +95,21 @@ func (h *UserHandler) Login(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	user, err := h.userService.Login(req.Username, req.Password)
+	err := h.userService.Login(req.Username, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	token, err := middlewares.GenerateJWT(user.ID, user.Username, []string{"user", "container:read"})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"user": user, "token": token})
+	c.Status(http.StatusOK)
 }
 
 // UpdatePassword godoc
@@ -122,11 +118,11 @@ func (h *UserHandler) Login(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param id path string true "User ID"
+// @Param id path string true "userId"
 // @Param body body struct{Password string json:"password"} true "New password"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
 // @Security ApiKeyAuth
 // @Router /users/update/password/{id} [put]
 func (h *UserHandler) UpdatePassword(c *gin.Context) {
@@ -136,16 +132,20 @@ func (h *UserHandler) UpdatePassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if err := h.userService.UpdatePassword(userId, req.Password); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Password updated"})
+	c.Status(http.StatusOK)
 }
 
 // UpdateRole godoc
@@ -154,11 +154,11 @@ func (h *UserHandler) UpdatePassword(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param id path string true "User ID"
+// @Param id path string true "userId"
 // @Param body body struct{Role string json:"role"} true "New role"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
 // @Security ApiKeyAuth
 // @Router /users/update/role/{id} [put]
 func (h *UserHandler) UpdateRole(c *gin.Context) {
@@ -168,16 +168,20 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if err := h.userService.UpdateRole(userId, entities.UserRole(req.Role)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Role updated"})
+	c.Status(http.StatusOK)
 }
 
 // UpdateScope godoc
@@ -186,11 +190,11 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param id path string true "User ID"
+// @Param id path string true "userId"
 // @Param body body struct{Scopes int64 json:"scope"} true "New scope bitmap"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
 // @Security ApiKeyAuth
 // @Router /users/update/scope/{id} [put]
 func (h *UserHandler) UpdateScope(c *gin.Context) {
@@ -200,16 +204,20 @@ func (h *UserHandler) UpdateScope(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if err := h.userService.UpdateScope(userId, req.Scopes); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Scope updated"})
+	c.Status(http.StatusOK)
 }
 
 // Delete godoc
@@ -217,18 +225,20 @@ func (h *UserHandler) UpdateScope(c *gin.Context) {
 // @Description Remove a user from the system (admin only)
 // @Tags users
 // @Produce json
-// @Param id path string true "User ID"
-// @Success 200 {object} map[string]string
-// @Failure 500 {object} ErrorResponse
+// @Param id path string true "userId"
+// @Success 200
+// @Failure 500 {object} dto.ErrorResponse
 // @Security ApiKeyAuth
 // @Router /users/delete/{id} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
 	userId := c.GetString("userId")
 
 	if err := h.userService.Delete(userId); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "User deleted"})
+	c.Status(http.StatusOK)
 }

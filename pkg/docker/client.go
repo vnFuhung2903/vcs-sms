@@ -104,8 +104,8 @@ func (c *DockerClient) HealthCheck(ctx context.Context, id string) error {
 	return nil
 }
 
-func (c *DockerClient) Delete(ctx context.Context, containerID string) error {
-	return c.client.ContainerRemove(ctx, containerID, container.RemoveOptions{
+func (c *DockerClient) Delete(ctx context.Context, containerId string) error {
+	return c.client.ContainerRemove(ctx, containerId, container.RemoveOptions{
 		Force: true,
 	})
 }

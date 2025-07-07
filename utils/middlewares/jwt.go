@@ -16,9 +16,9 @@ var jwtSecret = []byte(os.Getenv("JWT_SECRET_KEY"))
 
 const jwtExpiry = time.Hour * 24 * 7 // 1 week
 
-func GenerateJWT(userID string, username string, scope []string) (string, error) {
+func GenerateJWT(userId string, username string, scope []string) (string, error) {
 	claims := jwt.MapClaims{
-		"sub":   userID,
+		"sub":   userId,
 		"name":  username,
 		"scope": scope,
 		"exp":   time.Now().Add(jwtExpiry).Unix(),
@@ -85,7 +85,11 @@ func RequireScope(requiredScope string) gin.HandlerFunc {
 	}
 }
 
-func UserRoleToDefaultScopes(role entities.UserRole) []string {
+func UserRoleToDefaultScopes(role entities.UserRole, specialScopes *int64) []string {
+	if specialScopes != nil {
+		return HashMapToScope(*specialScopes)
+	}
+
 	switch role {
 	case entities.Developer:
 		{
@@ -104,7 +108,7 @@ func UserRoleToDefaultScopes(role entities.UserRole) []string {
 
 var scopeHashMap = []string{"user:modify", "user:manager", "container:create", "container:view", "container:update", "container:delete"}
 
-func ScopeHashMap(userScopes []string) int64 {
+func ScopeToHashMap(userScopes []string) int64 {
 	res := int64(0)
 	for i, scope := range scopeHashMap {
 		if found := slices.Contains(userScopes, scope); found {
@@ -112,4 +116,14 @@ func ScopeHashMap(userScopes []string) int64 {
 		}
 	}
 	return res
+}
+
+func HashMapToScope(scopes int64) []string {
+	var userScopes []string
+	for i := range len(scopeHashMap) {
+		if scopes&(1<<i) == 1 {
+			userScopes = append(userScopes, scopeHashMap[i])
+		}
+	}
+	return userScopes
 }
