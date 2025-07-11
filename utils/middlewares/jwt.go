@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/vnFuhung2903/vcs-sms/entities"
 )
 
 var jwtSecret = []byte(os.Getenv("JWT_SECRET_KEY"))
@@ -83,47 +82,4 @@ func RequireScope(requiredScope string) gin.HandlerFunc {
 		}
 		c.Next()
 	}
-}
-
-func UserRoleToDefaultScopes(role entities.UserRole, specialScopes *int64) []string {
-	if specialScopes != nil {
-		return HashMapToScope(*specialScopes)
-	}
-
-	switch role {
-	case entities.Developer:
-		{
-			return []string{"user:modify", "container:create", "container:view", "container:update", "container:delete"}
-		}
-	case entities.Manager:
-		{
-			return []string{"user:modify", "user:manager", "container:view"}
-		}
-	default:
-		{
-			return []string{"user:modify", "container:view"}
-		}
-	}
-}
-
-var scopeHashMap = []string{"user:modify", "user:manager", "container:create", "container:view", "container:update", "container:delete"}
-
-func ScopeToHashMap(userScopes []string) int64 {
-	res := int64(0)
-	for i, scope := range scopeHashMap {
-		if found := slices.Contains(userScopes, scope); found {
-			res |= (1 << i)
-		}
-	}
-	return res
-}
-
-func HashMapToScope(scopes int64) []string {
-	var userScopes []string
-	for i := range len(scopeHashMap) {
-		if scopes&(1<<i) == 1 {
-			userScopes = append(userScopes, scopeHashMap[i])
-		}
-	}
-	return userScopes
 }

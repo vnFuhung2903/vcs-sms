@@ -7,15 +7,16 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
 	"github.com/vnFuhung2903/vcs-sms/utils/hashes"
+	"github.com/vnFuhung2903/vcs-sms/utils/hashmap"
 	"go.uber.org/zap"
 )
 
 type IUserService interface {
 	Register(username, password, email string, role entities.UserRole, scopes int64) error
-	Login(username, password string) error
+	Login(username, password string) (*entities.User, error)
 	UpdatePassword(userId, password string) error
 	UpdateRole(userId string, role entities.UserRole) error
-	UpdateScope(userId string, scopes int64) error
+	UpdateScope(userId string, scopes []string, isAdded bool) error
 	Delete(userId string) error
 }
 
@@ -59,19 +60,19 @@ func (s *userService) Register(username, password, email string, role entities.U
 	return nil
 }
 
-func (s *userService) Login(username, password string) error {
+func (s *userService) Login(username, password string) (*entities.User, error) {
 	user, err := s.userRepo.FindByName(username)
 	if err != nil {
 		s.logger.Error("failed to find user by username", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	if err := hashes.ValidatePassword(password, user.Hash); err != nil {
 		s.logger.Error("failed to validate password", zap.Error(err))
-		return err
+		return nil, err
 	}
 	s.logger.Info("user logged in successfully")
-	return nil
+	return user, nil
 }
 
 func (s *userService) UpdatePassword(userId, password string) error {
@@ -109,13 +110,19 @@ func (s *userService) UpdateRole(userId string, role entities.UserRole) error {
 	return nil
 }
 
-func (s *userService) UpdateScope(userId string, scopes int64) error {
+func (s *userService) UpdateScope(userId string, scopes []string, isAdded bool) error {
 	user, err := s.userRepo.FindById(userId)
 	if err != nil {
 		s.logger.Error("failed to find user by id", zap.Error(err))
 		return err
 	}
-	if err := s.userRepo.UpdateScope(user, scopes); err != nil {
+
+	scopeHashmap := hashmap.ScopesToHashMap(scopes)
+	if !isAdded {
+		scopeHashmap = scopeHashmap ^ ((1 << hashmap.NumberOfScopes()) - 1)
+	}
+
+	if err := s.userRepo.UpdateScope(user, scopeHashmap); err != nil {
 		s.logger.Error("failed to update user's scopes", zap.Error(err))
 		return err
 	}

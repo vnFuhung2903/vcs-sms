@@ -7,15 +7,17 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
+	"github.com/vnFuhung2903/vcs-sms/utils/hashmap"
 	"github.com/vnFuhung2903/vcs-sms/utils/middlewares"
 )
 
 type UserHandler struct {
+	authService services.IAuthService
 	userService services.IUserService
 }
 
-func NewUserHandler(userService services.IUserService) *UserHandler {
-	return &UserHandler{userService}
+func NewUserHandler(authService services.IAuthService, userService services.IUserService) *UserHandler {
+	return &UserHandler{authService, userService}
 }
 
 func (h *UserHandler) SetupRoutes(r *gin.Engine) {
@@ -65,14 +67,20 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	scopes := middlewares.UserRoleToDefaultScopes(entities.UserRole(req.Role), nil)
-	if err := h.userService.Register(req.Username, req.Password, req.Email, entities.UserRole(req.Role), middlewares.ScopeToHashMap(scopes)); err != nil {
+	scopes := hashmap.UserRoleToDefaultScopes(entities.UserRole(req.Role), nil)
+	if err := h.userService.Register(req.Username, req.Password, req.Email, entities.UserRole(req.Role), hashmap.ScopesToHashMap(scopes)); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
 		return
 	}
 
+	if err := h.authService.Setup(req.Username, req.Username, hashmap.ScopesToHashMap(scopes)); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
 	c.Status(http.StatusOK)
 }
 
@@ -101,7 +109,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	err := h.userService.Login(req.Username, req.Password)
+	user, err := h.userService.Login(req.Username, req.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{
 			Error: err.Error(),
@@ -109,6 +117,12 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
+	if err := h.authService.Setup(req.Username, req.Username, user.Scopes); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
 	c.Status(http.StatusOK)
 }
 
@@ -200,7 +214,8 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 func (h *UserHandler) UpdateScope(c *gin.Context) {
 	userId := c.GetString("userId")
 	var req struct {
-		Scopes int64 `json:"scope"`
+		IsAdded bool     `json:"isAdded"`
+		Scopes  []string `json:"scope"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -210,7 +225,7 @@ func (h *UserHandler) UpdateScope(c *gin.Context) {
 		return
 	}
 
-	if err := h.userService.UpdateScope(userId, req.Scopes); err != nil {
+	if err := h.userService.UpdateScope(userId, req.Scopes, req.IsAdded); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})

@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
+	"github.com/vnFuhung2903/vcs-sms/utils/hashmap"
 	"github.com/vnFuhung2903/vcs-sms/utils/middlewares"
 	"go.uber.org/zap"
 )
@@ -26,7 +27,7 @@ func NewAuthService(redisClient *redis.Client, logger logger.ILogger) IAuthServi
 }
 
 func (s *authService) Setup(id string, username string, scopes int64) error {
-	token, err := middlewares.GenerateJWT(id, username, middlewares.HashMapToScope(scopes))
+	token, err := middlewares.GenerateJWT(id, username, hashmap.HashMapToScopes(scopes))
 	if err != nil {
 		s.logger.Error("failed to generate jwt token", zap.Error(err))
 		return err
