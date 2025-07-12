@@ -3,13 +3,16 @@ package repositories
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/vnFuhung2903/vcs-sms/entities"
+
 	"gorm.io/gorm"
 )
 
 type IUserRepository interface {
 	FindById(userId string) (*entities.User, error)
 	FindByName(username string) (*entities.User, error)
+	FindByEmail(email string) (*entities.User, error)
 	Create(username, hash, email string, role entities.UserRole, scopes int64) (*entities.User, error)
 	UpdatePassword(user *entities.User, hash string) error
 	UpdateRole(user *entities.User, role entities.UserRole) error
@@ -45,8 +48,18 @@ func (r *userRepository) FindByName(username string) (*entities.User, error) {
 	return &user, nil
 }
 
+func (r *userRepository) FindByEmail(email string) (*entities.User, error) {
+	var user entities.User
+	res := r.db.First(&user, entities.User{Email: email})
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	return &user, nil
+}
+
 func (r *userRepository) Create(username, hash, email string, role entities.UserRole, scopes int64) (*entities.User, error) {
 	newUser := &entities.User{
+		ID:       uuid.New().String(),
 		Username: username,
 		Hash:     hash,
 		Email:    email,
@@ -61,15 +74,18 @@ func (r *userRepository) Create(username, hash, email string, role entities.User
 }
 
 func (r *userRepository) UpdatePassword(user *entities.User, hash string) error {
-	return r.db.Model(user).Update("hash", hash).Error
+	res := r.db.Model(user).Update("hash", hash)
+	return res.Error
 }
 
 func (r *userRepository) UpdateRole(user *entities.User, role entities.UserRole) error {
-	return r.db.Model(user).Update("role", role).Error
+	res := r.db.Model(user).Update("role", role)
+	return res.Error
 }
 
 func (r *userRepository) UpdateScope(user *entities.User, scopes int64) error {
-	return r.db.Model(user).Update("scopes", scopes).Error
+	res := r.db.Model(user).Update("scopes", scopes)
+	return res.Error
 }
 
 func (r *userRepository) Delete(userId string) error {

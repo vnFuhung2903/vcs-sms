@@ -7,7 +7,7 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
-	"github.com/vnFuhung2903/vcs-sms/utils/hashmap"
+	"github.com/vnFuhung2903/vcs-sms/utils"
 	"github.com/vnFuhung2903/vcs-sms/utils/middlewares"
 )
 
@@ -37,7 +37,6 @@ func (h *UserHandler) SetupRoutes(r *gin.Engine) {
 			adminGroup.PUT("/update/scope/:id", h.UpdateScope)
 			adminGroup.DELETE("/delete/:id", h.Delete)
 		}
-
 	}
 }
 
@@ -47,19 +46,13 @@ func (h *UserHandler) SetupRoutes(r *gin.Engine) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param body body struct{Username string json:"username"; Password string json:"password"; Email string json:"email"; Role string json:"role"} true "User registration"
+// @Param body body dto.RegisterRequest true "User registration"
 // @Success 200
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Router /users/register [post]
 func (h *UserHandler) Register(c *gin.Context) {
-	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Email    string `json:"email"`
-		Role     string `json:"role"`
-	}
-
+	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),
@@ -67,15 +60,15 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	scopes := hashmap.UserRoleToDefaultScopes(entities.UserRole(req.Role), nil)
-	if err := h.userService.Register(req.Username, req.Password, req.Email, entities.UserRole(req.Role), hashmap.ScopesToHashMap(scopes)); err != nil {
+	scopes := utils.UserRoleToDefaultScopes(entities.UserRole(req.Role), nil)
+	if err := h.userService.Register(req.Username, req.Password, req.Email, entities.UserRole(req.Role), utils.ScopesToHashMap(scopes)); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
 		return
 	}
 
-	if err := h.authService.Setup(req.Username, req.Username, hashmap.ScopesToHashMap(scopes)); err != nil {
+	if err := h.authService.Setup(req.Username, req.Username, utils.ScopesToHashMap(scopes)); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
@@ -90,18 +83,14 @@ func (h *UserHandler) Register(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param body body struct{Username string json:"username"; Password string json:"password"} true "User login"
+// @Param body body dto.LoginRequest true "User login"
 // @Success 200
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 401 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Router /users/login [post]
 func (h *UserHandler) Login(c *gin.Context) {
-	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-
+	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),

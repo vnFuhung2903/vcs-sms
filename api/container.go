@@ -52,7 +52,7 @@ func (h *ContainerHandler) SetupRoutes(r *gin.Engine) {
 // @Tags containers
 // @Accept json
 // @Produce json
-// @Param body body CreateRequest true "Container creation request"
+// @Param body body dto.CreateRequest true "Container creation request"
 // @Success 200
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse

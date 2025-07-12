@@ -2,13 +2,14 @@ package services
 
 import (
 	"errors"
+	"net/mail"
 
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
-	"github.com/vnFuhung2903/vcs-sms/utils/hashes"
-	"github.com/vnFuhung2903/vcs-sms/utils/hashmap"
+	"github.com/vnFuhung2903/vcs-sms/utils"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type IUserService interface {
@@ -44,13 +45,19 @@ func (s *userService) Register(username, password, email string, role entities.U
 		return err
 	}
 
-	hash, err := hashes.HashPassword(password)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		s.logger.Error("failed to hash password", zap.Error(err))
 		return err
 	}
 
-	_, err = s.userRepo.Create(username, hash, email, role, scopes)
+	mail, err := mail.ParseAddress(email)
+	if err != nil {
+		s.logger.Error("failed to parse email", zap.Error(err))
+		return err
+	}
+
+	_, err = s.userRepo.Create(username, string(hash), mail.Address, role, scopes)
 	if err != nil {
 		s.logger.Error("failed to create user", zap.Error(err))
 		return err
@@ -61,13 +68,23 @@ func (s *userService) Register(username, password, email string, role entities.U
 }
 
 func (s *userService) Login(username, password string) (*entities.User, error) {
-	user, err := s.userRepo.FindByName(username)
+	var user *entities.User
+	mail, err := mail.ParseAddress(username)
 	if err != nil {
-		s.logger.Error("failed to find user by username", zap.Error(err))
-		return nil, err
+		user, err = s.userRepo.FindByName(username)
+		if err != nil {
+			s.logger.Error("failed to find user by username", zap.Error(err))
+			return nil, err
+		}
+	} else {
+		user, err = s.userRepo.FindByEmail(mail.Address)
+		if err != nil {
+			s.logger.Error("failed to find user by email", zap.Error(err))
+			return nil, err
+		}
 	}
 
-	if err := hashes.ValidatePassword(password, user.Hash); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Hash), []byte(password)); err != nil {
 		s.logger.Error("failed to validate password", zap.Error(err))
 		return nil, err
 	}
@@ -82,13 +99,13 @@ func (s *userService) UpdatePassword(userId, password string) error {
 		return err
 	}
 
-	hash, err := hashes.HashPassword(password)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		s.logger.Error("failed to hash password", zap.Error(err))
 		return err
 	}
 
-	if err := s.userRepo.UpdatePassword(user, hash); err != nil {
+	if err := s.userRepo.UpdatePassword(user, string(hash)); err != nil {
 		s.logger.Error("failed to update user's password", zap.Error(err))
 		return err
 	}
@@ -117,9 +134,9 @@ func (s *userService) UpdateScope(userId string, scopes []string, isAdded bool) 
 		return err
 	}
 
-	scopeHashmap := hashmap.ScopesToHashMap(scopes)
+	scopeHashmap := utils.ScopesToHashMap(scopes)
 	if !isAdded {
-		scopeHashmap = scopeHashmap ^ ((1 << hashmap.NumberOfScopes()) - 1)
+		scopeHashmap = scopeHashmap ^ ((1 << utils.NumberOfScopes()) - 1)
 	}
 
 	if err := s.userRepo.UpdateScope(user, scopeHashmap); err != nil {

@@ -1,8 +1,6 @@
 package dto
 
 import (
-	"time"
-
 	"github.com/vnFuhung2903/vcs-sms/entities"
 )
 
@@ -23,11 +21,4 @@ type ImportResponse struct {
 	SuccessContainers []string `json:"success_containers"`
 	FailedCount       int      `json:"failed_count"`
 	FailedContainers  []string `json:"failed_containers"`
-}
-
-type ElasticsearchStatus struct {
-	ContainerId string    `json:"server_id"`
-	Status      string    `json:"status"`
-	Uptime      int64     `json:"uptime"`
-	LastUpdated time.Time `json:"last_updated"`
 }

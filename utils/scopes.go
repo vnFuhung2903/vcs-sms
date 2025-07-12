@@ -1,4 +1,4 @@
-package hashmap
+package utils
 
 import (
 	"slices"
@@ -20,11 +20,11 @@ func UserRoleToDefaultScopes(role entities.UserRole, specialScopes *int64) []str
 	switch role {
 	case entities.Developer:
 		{
-			return []string{"user:modify", "container:create", "container:view", "container:update", "container:delete"}
+			return []string{"user:modify", "container:create", "container:view", "container:update", "container:delete", "report:mail"}
 		}
 	case entities.Manager:
 		{
-			return []string{"user:modify", "user:manager", "container:view"}
+			return []string{"user:modify", "user:manager", "container:view", "report:mail"}
 		}
 	default:
 		{

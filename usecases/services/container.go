@@ -3,14 +3,12 @@ package services
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"mime/multipart"
 	"strings"
 	"time"
 
-	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
@@ -27,19 +25,16 @@ type IContainerService interface {
 	Import(ctx context.Context, file multipart.File) (*dto.ImportResponse, error)
 	Export(ctx context.Context, filter entities.ContainerFilter, from int, to int, sort entities.ContainerSort) ([]byte, error)
 	Delete(ctx context.Context, containerId string) error
-	EsBulk(statusList []dto.ElasticsearchStatus) error
 }
 
 type ContainerService struct {
 	containerRepo repositories.IContainerRepository
-	esClient      *elasticsearch.Client
 	logger        logger.ILogger
 }
 
-func NewContainerService(repo repositories.IContainerRepository, esClient *elasticsearch.Client, logger logger.ILogger) IContainerService {
+func NewContainerService(repo repositories.IContainerRepository, logger logger.ILogger) IContainerService {
 	return &ContainerService{
 		containerRepo: repo,
-		esClient:      esClient,
 		logger:        logger,
 	}
 }
@@ -61,7 +56,7 @@ func (s *ContainerService) View(ctx context.Context, filter entities.ContainerFi
 		s.logger.Error("failed to view containers", zap.Error(err))
 		return nil, 0, err
 	}
-	limit := max(to-from+1, 1)
+	limit := max(to-from+1, -1)
 
 	containers, total, err := s.containerRepo.View(filter, from, limit, sort)
 	if err != nil {
@@ -258,139 +253,4 @@ func (s *ContainerService) _importContainer(ctx context.Context, containerId str
 	}
 	commited = true
 	return nil
-}
-
-func (s *ContainerService) EsBulk(statusList []dto.ElasticsearchStatus) error {
-	var buf bytes.Buffer
-	indexName := "sms_container"
-
-	var ids []string
-	for _, status := range statusList {
-		ids = append(ids, status.ContainerId)
-	}
-
-	existingDocs, err := s._getEsStatus(ids)
-	if err != nil {
-		s.logger.Error("failed to mget container", zap.Error(err))
-		return fmt.Errorf("mget failed: %w", err)
-	}
-
-	var metaLine, docLine []byte
-
-	for _, status := range statusList {
-		old, exists := existingDocs[status.ContainerId]
-		if !exists {
-			meta := map[string]map[string]string{
-				"index": {
-					"_index": indexName,
-					"_id":    status.ContainerId,
-				},
-			}
-
-			metaLine, err = json.Marshal(meta)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-			docLine, _ = json.Marshal(status)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-		} else if old.Status == status.Status {
-			update := map[string]interface{}{
-				"doc": map[string]interface{}{
-					"uptime":       old.Uptime + status.Uptime,
-					"last_updated": time.Now(),
-				},
-			}
-			meta := map[string]map[string]string{
-				"update": {
-					"_index": indexName,
-					"_id":    status.ContainerId,
-				},
-			}
-
-			metaLine, err = json.Marshal(meta)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-			docLine, err = json.Marshal(update)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-		} else {
-			newDoc := dto.ElasticsearchStatus{
-				ContainerId: status.ContainerId,
-				Status:      status.Status,
-				Uptime:      status.Uptime,
-				LastUpdated: time.Now(),
-			}
-			meta := map[string]map[string]string{
-				"index": {
-					"_index": indexName,
-					"_id":    status.ContainerId,
-				},
-			}
-
-			metaLine, err = json.Marshal(meta)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-			docLine, err = json.Marshal(newDoc)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-		}
-
-		buf.Write(metaLine)
-		buf.WriteByte('\n')
-		buf.Write(docLine)
-		buf.WriteByte('\n')
-	}
-
-	res, err := s.esClient.Bulk(bytes.NewReader(buf.Bytes()))
-	if err != nil {
-		s.logger.Error("failed to bulk es", zap.Error(err))
-		return err
-	}
-	defer res.Body.Close()
-	s.logger.Info("elasticsearch bulk indexed successfully")
-	return nil
-}
-
-func (s *ContainerService) _getEsStatus(ids []string) (map[string]dto.ElasticsearchStatus, error) {
-	body := map[string]interface{}{
-		"ids": ids,
-	}
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(body); err != nil {
-		s.logger.Error("failed to encode mget request body", zap.Error(err))
-		return nil, err
-	}
-
-	res, err := s.esClient.Mget(bytes.NewReader(buf.Bytes()), s.esClient.Mget.WithIndex("sms_container"))
-	if err != nil {
-		s.logger.Error("failed to mget container", zap.Error(err))
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	var parsed struct {
-		Docs []struct {
-			Id     string                  `json:"_id"`
-			Found  bool                    `json:"found"`
-			Source dto.ElasticsearchStatus `json:"_source"`
-		} `json:"docs"`
-	}
-	if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
-		s.logger.Error("failed to decode mget response body", zap.Error(err))
-		return nil, err
-	}
-
-	results := make(map[string]dto.ElasticsearchStatus)
-	for _, doc := range parsed.Docs {
-		if doc.Found {
-			results[doc.Id] = doc.Source
-		}
-	}
-	return results, nil
 }
