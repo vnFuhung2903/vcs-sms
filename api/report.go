@@ -46,9 +46,8 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	filter := entities.ContainerFilter{}
-
-	sort := entities.StandardizeSort(entities.ContainerSort{})
+	filter := dto.ContainerFilter{}
+	sort := dto.StandardizeSort(dto.ContainerSort{})
 
 	data, total, err := h.containerService.View(c.Request.Context(), filter, 1, -1, sort)
 	if err != nil {

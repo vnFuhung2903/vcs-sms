@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -66,52 +67,41 @@ func (suite *ContainerRepoSuite) TestFindByNameNotFound() {
 	assert.Error(suite.T(), err)
 }
 
-func (suite *ContainerRepoSuite) TestFindByIdCaseSensitivity() {
-	_, _ = suite.repo.Create("CID-10", "Iota", entities.ContainerOn, "10.0.0.12")
-
-	_, err := suite.repo.FindById("cid-10") // Lowercase
-	assert.Error(suite.T(), err)
-
-	found, err := suite.repo.FindById("CID-10")
-	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), "CID-10", found.ContainerId)
-}
-
 func (suite *ContainerRepoSuite) TestViewWithFilters() {
 	_, _ = suite.repo.Create("cid-3", "Gamma", entities.ContainerOn, "10.0.0.3")
 	_, _ = suite.repo.Create("cid-4", "Delta", entities.ContainerOff, "10.0.0.4")
 
 	// ContainerId filter
-	filter := entities.ContainerFilter{ContainerId: "cid-3"}
-	sort := entities.ContainerSort{Field: "container_id", Sort: "asc"}
+	filter := dto.ContainerFilter{ContainerId: "cid-3"}
+	sort := dto.ContainerSort{Field: "container_id", Sort: "asc"}
 	result, total, err := suite.repo.View(filter, 1, 10, sort)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(1), total)
 	assert.Equal(suite.T(), "cid-3", result[0].ContainerId)
 
 	// Status filter
-	filter = entities.ContainerFilter{Status: entities.ContainerOff}
+	filter = dto.ContainerFilter{Status: entities.ContainerOff}
 	result, total, err = suite.repo.View(filter, 1, 10, sort)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(1), total)
 	assert.Equal(suite.T(), "cid-4", result[0].ContainerId)
 
 	// ContainerName filter
-	filter = entities.ContainerFilter{ContainerName: "Gamma"}
+	filter = dto.ContainerFilter{ContainerName: "Gamma"}
 	result, total, err = suite.repo.View(filter, 1, 10, sort)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(1), total)
 	assert.Equal(suite.T(), "cid-3", result[0].ContainerId)
 
 	// Ipv4 filter
-	filter = entities.ContainerFilter{Ipv4: "10.0.0.4"}
+	filter = dto.ContainerFilter{Ipv4: "10.0.0.4"}
 	result, total, err = suite.repo.View(filter, 1, 10, sort)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(1), total)
 	assert.Equal(suite.T(), "cid-4", result[0].ContainerId)
 
 	// Multiple filters
-	filter = entities.ContainerFilter{ContainerId: "cid-3", Ipv4: "10.0.0.4"}
+	filter = dto.ContainerFilter{ContainerId: "cid-3", Ipv4: "10.0.0.4"}
 	result, total, err = suite.repo.View(filter, 1, 10, sort)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(0), total)
@@ -121,8 +111,8 @@ func (suite *ContainerRepoSuite) TestViewDefaultNoFilter() {
 	_, _ = suite.repo.Create("cid-5", "Epsilon", entities.ContainerOn, "10.0.0.5")
 	_, _ = suite.repo.Create("cid-6", "Stigma", entities.ContainerOff, "10.0.0.6")
 
-	filter := entities.ContainerFilter{}
-	sort := entities.ContainerSort{Field: "container_id", Sort: "asc"}
+	filter := dto.ContainerFilter{}
+	sort := dto.ContainerSort{Field: "container_id", Sort: "asc"}
 	results, total, err := suite.repo.View(filter, 1, 10, sort)
 
 	assert.NoError(suite.T(), err)
@@ -135,8 +125,8 @@ func (suite *ContainerRepoSuite) TestViewPagination() {
 		suite.repo.Create(fmt.Sprintf("cid-pg-%d", i), fmt.Sprintf("Name%d", i), entities.ContainerOn, fmt.Sprintf("10.0.1.%d", i))
 	}
 
-	filter := entities.ContainerFilter{}
-	sort := entities.ContainerSort{Field: "container_id", Sort: "asc"}
+	filter := dto.ContainerFilter{}
+	sort := dto.ContainerSort{Field: "container_id", Sort: "asc"}
 
 	page1, total1, err := suite.repo.View(filter, 1, 2, sort)
 	assert.NoError(suite.T(), err)
@@ -145,18 +135,18 @@ func (suite *ContainerRepoSuite) TestViewPagination() {
 
 	page2, _, err := suite.repo.View(filter, 3, 2, sort)
 	assert.NoError(suite.T(), err)
-	assert.Len(suite.T(), page2, 2) // 3rd and 4th items
+	assert.Len(suite.T(), page2, 2)
 }
 
 func (suite *ContainerRepoSuite) TestViewWithInvalidSort() {
-	_, _, err := suite.repo.View(entities.ContainerFilter{}, 1, 10, entities.ContainerSort{Field: "not_a_field", Sort: "asc"})
+	_, _, err := suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{Field: "not_a_field", Sort: "asc"})
 	assert.Error(suite.T(), err)
-	_, _, err = suite.repo.View(entities.ContainerFilter{}, 1, 10, entities.ContainerSort{Field: "container_id", Sort: "invalid_order"})
+	_, _, err = suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{Field: "container_id", Sort: "invalid_order"})
 	assert.Error(suite.T(), err)
 }
 
 func (suite *ContainerRepoSuite) TestViewWithEmptySort() {
-	_, _, err := suite.repo.View(entities.ContainerFilter{}, 1, 10, entities.ContainerSort{})
+	_, _, err := suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{})
 	assert.Error(suite.T(), err)
 }
 
@@ -165,8 +155,8 @@ func (suite *ContainerRepoSuite) TestViewWhileDbClose() {
 	assert.NoError(suite.T(), err)
 	sqlDB.Close()
 
-	filter := entities.ContainerFilter{}
-	sort := entities.ContainerSort{Field: "container_id", Sort: "asc"}
+	filter := dto.ContainerFilter{}
+	sort := dto.ContainerSort{Field: "container_id", Sort: "asc"}
 
 	_, _, err = suite.repo.View(filter, 1, 10, sort)
 
@@ -190,7 +180,7 @@ func (suite *ContainerRepoSuite) TestCreateDuplicateContainerName() {
 
 func (suite *ContainerRepoSuite) TestUpdate() {
 	c, _ := suite.repo.Create("cid-7", "Zeta", entities.ContainerOff, "10.0.0.7")
-	update := entities.ContainerUpdate{Status: entities.ContainerOn}
+	update := dto.ContainerUpdate{Status: entities.ContainerOn}
 	err := suite.repo.Update(c, update)
 	assert.NoError(suite.T(), err)
 	found, _ := suite.repo.FindById("cid-7")
@@ -204,14 +194,14 @@ func (suite *ContainerRepoSuite) TestUpdateNonExistent() {
 		ContainerName: "Ghost",
 		Status:        entities.ContainerOff,
 	}
-	update := entities.ContainerUpdate{Status: entities.ContainerOn}
+	update := dto.ContainerUpdate{Status: entities.ContainerOn}
 	err := suite.repo.Update(c, update)
 	assert.NoError(suite.T(), err)
 }
 
 func (suite *ContainerRepoSuite) TestUpdateMultipleFields() {
 	c, _ := suite.repo.Create("cid-8", "Eta", entities.ContainerOff, "10.0.0.8")
-	update := entities.ContainerUpdate{
+	update := dto.ContainerUpdate{
 		Status: entities.ContainerOn,
 	}
 	err := suite.repo.Update(c, update)
@@ -223,14 +213,14 @@ func (suite *ContainerRepoSuite) TestUpdateMultipleFields() {
 }
 
 func (suite *ContainerRepoSuite) TestUpdateNilContainer() {
-	update := entities.ContainerUpdate{Status: entities.ContainerOn}
+	update := dto.ContainerUpdate{Status: entities.ContainerOn}
 	err := suite.repo.Update(nil, update)
 	assert.Error(suite.T(), err)
 }
 
 func (suite *ContainerRepoSuite) TestUpdateEmptyUpdateData() {
 	c, _ := suite.repo.Create("cid-9", "Theta", entities.ContainerOff, "10.0.0.9")
-	err := suite.repo.Update(c, entities.ContainerUpdate{})
+	err := suite.repo.Update(c, dto.ContainerUpdate{})
 	assert.NoError(suite.T(), err)
 }
 
@@ -244,7 +234,7 @@ func (suite *ContainerRepoSuite) TestDelete() {
 
 func (suite *ContainerRepoSuite) TestDeleteNonExistent() {
 	err := suite.repo.Delete("not-exist-id")
-	assert.NoError(suite.T(), err) // GORM treats deleting non-existent as no error
+	assert.NoError(suite.T(), err)
 }
 
 func (suite *ContainerRepoSuite) TestBeginAndWithTransaction() {

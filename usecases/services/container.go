@@ -20,10 +20,10 @@ import (
 
 type IContainerService interface {
 	Create(ctx context.Context, containerId string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error)
-	View(ctx context.Context, containerFilter entities.ContainerFilter, from int, to int, sortOpt entities.ContainerSort) ([]*entities.Container, int64, error)
-	Update(ctx context.Context, containerId string, updateData entities.ContainerUpdate) error
+	View(ctx context.Context, containerFilter dto.ContainerFilter, from int, to int, sortOpt dto.ContainerSort) ([]*entities.Container, int64, error)
+	Update(ctx context.Context, containerId string, updateData dto.ContainerUpdate) error
 	Import(ctx context.Context, file multipart.File) (*dto.ImportResponse, error)
-	Export(ctx context.Context, filter entities.ContainerFilter, from int, to int, sort entities.ContainerSort) ([]byte, error)
+	Export(ctx context.Context, filter dto.ContainerFilter, from int, to int, sort dto.ContainerSort) ([]byte, error)
 	Delete(ctx context.Context, containerId string) error
 }
 
@@ -50,7 +50,7 @@ func (s *ContainerService) Create(ctx context.Context, containerId string, conta
 	return container, nil
 }
 
-func (s *ContainerService) View(ctx context.Context, filter entities.ContainerFilter, from int, to int, sort entities.ContainerSort) ([]*entities.Container, int64, error) {
+func (s *ContainerService) View(ctx context.Context, filter dto.ContainerFilter, from int, to int, sort dto.ContainerSort) ([]*entities.Container, int64, error) {
 	if from < 1 {
 		err := errors.New("invalid range")
 		s.logger.Error("failed to view containers", zap.Error(err))
@@ -68,7 +68,7 @@ func (s *ContainerService) View(ctx context.Context, filter entities.ContainerFi
 	return containers, total, nil
 }
 
-func (s *ContainerService) Update(ctx context.Context, containerId string, updateData entities.ContainerUpdate) error {
+func (s *ContainerService) Update(ctx context.Context, containerId string, updateData dto.ContainerUpdate) error {
 	tx, err := s.containerRepo.BeginTransaction(ctx)
 	if err != nil {
 		s.logger.Error("failed to begin transaction", zap.Error(err))
@@ -159,7 +159,7 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*dt
 	return result, nil
 }
 
-func (s *ContainerService) Export(ctx context.Context, filter entities.ContainerFilter, from int, to int, sort entities.ContainerSort) ([]byte, error) {
+func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilter, from int, to int, sort dto.ContainerSort) ([]byte, error) {
 	if from < 1 {
 		err := errors.New("invalid range")
 		s.logger.Error("failed to view containers", zap.Error(err))

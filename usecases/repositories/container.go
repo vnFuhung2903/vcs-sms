@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"gorm.io/gorm"
 )
@@ -11,9 +12,9 @@ import (
 type IContainerRepository interface {
 	FindById(containerId string) (*entities.Container, error)
 	FindByName(containerName string) (*entities.Container, error)
-	View(filter entities.ContainerFilter, from int, limit int, sort entities.ContainerSort) ([]*entities.Container, int64, error)
+	View(filter dto.ContainerFilter, from int, limit int, sort dto.ContainerSort) ([]*entities.Container, int64, error)
 	Create(containerId string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error)
-	Update(container *entities.Container, updateData entities.ContainerUpdate) error
+	Update(container *entities.Container, updateData dto.ContainerUpdate) error
 	Delete(containerId string) error
 	BeginTransaction(ctx context.Context) (*gorm.DB, error)
 	WithTransaction(tx *gorm.DB) IContainerRepository
@@ -45,7 +46,7 @@ func (r *containerRepository) FindByName(containerName string) (*entities.Contai
 	return &container, nil
 }
 
-func (r *containerRepository) View(filter entities.ContainerFilter, from int, limit int, sort entities.ContainerSort) ([]*entities.Container, int64, error) {
+func (r *containerRepository) View(filter dto.ContainerFilter, from int, limit int, sort dto.ContainerSort) ([]*entities.Container, int64, error) {
 	query := r.db.Model(entities.Container{})
 
 	if filter.ContainerId != "" {
@@ -89,7 +90,7 @@ func (r *containerRepository) Create(containerId string, containerName string, s
 	return newContainer, nil
 }
 
-func (r *containerRepository) Update(container *entities.Container, updateData entities.ContainerUpdate) error {
+func (r *containerRepository) Update(container *entities.Container, updateData dto.ContainerUpdate) error {
 	res := r.db.Model(container).Updates(updateData)
 	return res.Error
 }

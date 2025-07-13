@@ -6,7 +6,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/dto"
-	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
 	"github.com/vnFuhung2903/vcs-sms/utils/middlewares"
 )
@@ -108,8 +107,8 @@ func (h *ContainerHandler) View(c *gin.Context) {
 		return
 	}
 
-	var filter entities.ContainerFilter
-	var sort entities.ContainerSort
+	var filter dto.ContainerFilter
+	var sort dto.ContainerSort
 	if err := c.ShouldBindQuery(&filter); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),
@@ -124,7 +123,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 		return
 	}
 
-	sort = entities.StandardizeSort(sort)
+	sort = dto.StandardizeSort(sort)
 	containers, total, err := h.containerService.View(c.Request.Context(), filter, from, to, sort)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
@@ -144,7 +143,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 // @Tags containers
 // @Accept json
 // @Param id path string true "containerId"
-// @Param body body entities.ContainerUpdate true "Update data"
+// @Param body body dto.ContainerUpdate true "Update data"
 // @Success 200
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
@@ -153,7 +152,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 func (h *ContainerHandler) Update(c *gin.Context) {
 	containerId := c.Param("id")
 
-	var updateData entities.ContainerUpdate
+	var updateData dto.ContainerUpdate
 	if err := c.ShouldBindJSON(&updateData); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),
@@ -255,8 +254,8 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 		return
 	}
 
-	var filter entities.ContainerFilter
-	var sort entities.ContainerSort
+	var filter dto.ContainerFilter
+	var sort dto.ContainerSort
 	if err := c.ShouldBindQuery(&filter); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),
@@ -271,7 +270,7 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 		return
 	}
 
-	sort = entities.StandardizeSort(sort)
+	sort = dto.StandardizeSort(sort)
 	data, err := h.containerService.Export(c.Request.Context(), filter, from, to, sort)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
