@@ -107,6 +107,7 @@ func (s *ContainerService) Update(ctx context.Context, containerId string, updat
 func (s *ContainerService) Delete(ctx context.Context, containerId string) error {
 	if err := s.containerRepo.Delete(containerId); err != nil {
 		s.logger.Error("failed to delete container", zap.Error(err))
+		return err
 	}
 	return nil
 }
@@ -162,7 +163,7 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*dt
 func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilter, from int, to int, sort dto.ContainerSort) ([]byte, error) {
 	if from < 1 {
 		err := errors.New("invalid range")
-		s.logger.Error("failed to view containers", zap.Error(err))
+		s.logger.Error("failed to export containers", zap.Error(err))
 		return nil, err
 	}
 	limit := max(to-from+1, 1)
@@ -199,11 +200,6 @@ func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilte
 	}
 	s.logger.Info("containers exported successfully")
 	return buf.Bytes(), nil
-}
-
-func (s *ContainerService) Report(ctx context.Context, emailTo, msg string) error {
-	s.logger.Info("Report sent successfully", zap.String("emailTo", emailTo), zap.String("subject", msg))
-	return nil
 }
 
 func (s *ContainerService) _importContainer(ctx context.Context, containerId string, containerName string, status entities.ContainerStatus, ipv4 string) error {

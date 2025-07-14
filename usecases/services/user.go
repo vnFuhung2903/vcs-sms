@@ -35,12 +35,10 @@ func NewUserService(userRepo repositories.IUserRepository, logger logger.ILogger
 
 func (s *userService) Register(username, password, email string, role entities.UserRole, scopes int64) error {
 	existing, err := s.userRepo.FindByName(username)
-	if err != nil {
-		s.logger.Error("failed to find user by username", zap.Error(err))
-		return err
-	}
-	if existing != nil {
-		err := errors.New("username already taken")
+	if existing != nil || (err != nil && err.Error() != "record not found") {
+		if err == nil {
+			err = errors.New("username already taken")
+		}
 		s.logger.Error("failed to register user", zap.Error(err))
 		return err
 	}

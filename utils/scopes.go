@@ -6,7 +6,7 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/entities"
 )
 
-var scopeHashMap = []string{"user:modify", "user:manager", "container:create", "container:view", "container:update", "container:delete"}
+var scopeHashMap = []string{"user:modify", "user:manager", "container:create", "container:view", "container:update", "container:delete", "report:mail"}
 
 func NumberOfScopes() int {
 	return len(scopeHashMap)
@@ -20,7 +20,8 @@ func UserRoleToDefaultScopes(role entities.UserRole, specialScopes *int64) []str
 	switch role {
 	case entities.Developer:
 		{
-			return []string{"user:modify", "container:create", "container:view", "container:update", "container:delete", "report:mail"}
+			return scopeHashMap
+			// return []string{"user:modify", "container:create", "container:view", "container:update", "container:delete", "report:mail"}
 		}
 	case entities.Manager:
 		{
@@ -45,8 +46,8 @@ func ScopesToHashMap(userScopes []string) int64 {
 
 func HashMapToScopes(scopes int64) []string {
 	var userScopes []string
-	for i := range len(scopeHashMap) {
-		if scopes&(1<<i) == 1 {
+	for i := range scopeHashMap {
+		if scopes&(1<<i) != 0 {
 			userScopes = append(userScopes, scopeHashMap[i])
 		}
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/api"
+	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/infrastructures/databases"
 	"github.com/vnFuhung2903/vcs-sms/pkg/docker"
 	"github.com/vnFuhung2903/vcs-sms/pkg/env"
@@ -25,6 +26,7 @@ func main() {
 	}
 
 	postgresDb := databases.ConnectPostgresDb(env.PostgresEnv)
+	postgresDb.AutoMigrate(&entities.Container{}, &entities.User{})
 	esClient := databases.ConnectESDb()
 	redisClient := databases.ConnectRedis()
 	dockerClient, err := docker.NewDockerClient()
