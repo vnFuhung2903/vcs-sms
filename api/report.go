@@ -48,10 +48,7 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	filter := dto.ContainerFilter{}
-	sort := dto.StandardizeSort(dto.ContainerSort{})
-
-	data, total, err := h.containerService.View(c.Request.Context(), filter, 1, -1, sort)
+	data, total, err := h.containerService.View(c.Request.Context(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
@@ -104,10 +101,7 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 }
 
 func (h *ReportHandler) Update(c *gin.Context) {
-	filter := dto.ContainerFilter{}
-	sort := dto.StandardizeSort(dto.ContainerSort{})
-
-	data, _, err := h.containerService.View(c.Request.Context(), filter, 1, -1, sort)
+	data, _, err := h.containerService.View(c.Request.Context(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),

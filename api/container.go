@@ -124,7 +124,6 @@ func (h *ContainerHandler) View(c *gin.Context) {
 		return
 	}
 
-	sort = dto.StandardizeSort(sort)
 	containers, total, err := h.containerService.View(c.Request.Context(), filter, from, to, sort)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
@@ -271,7 +270,6 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 		return
 	}
 
-	sort = dto.StandardizeSort(sort)
 	data, err := h.containerService.Export(c.Request.Context(), filter, from, to, sort)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{

@@ -49,7 +49,7 @@ var sortField = map[string]bool{
 }
 
 func StandardizeSort(sort ContainerSort) ContainerSort {
-	var standardizedSort ContainerSort
+	standardizedSort := sort
 	if !sortField[sort.Field] {
 		standardizedSort.Field = "container_id"
 	}

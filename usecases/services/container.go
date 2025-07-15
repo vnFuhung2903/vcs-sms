@@ -20,7 +20,7 @@ import (
 
 type IContainerService interface {
 	Create(ctx context.Context, containerId string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error)
-	View(ctx context.Context, containerFilter dto.ContainerFilter, from int, to int, sortOpt dto.ContainerSort) ([]*entities.Container, int64, error)
+	View(ctx context.Context, containerFilter dto.ContainerFilter, from int, to int, sort dto.ContainerSort) ([]*entities.Container, int64, error)
 	Update(ctx context.Context, containerId string, updateData dto.ContainerUpdate) error
 	Import(ctx context.Context, file multipart.File) (*dto.ImportResponse, error)
 	Export(ctx context.Context, filter dto.ContainerFilter, from int, to int, sort dto.ContainerSort) ([]byte, error)
@@ -40,6 +40,12 @@ func NewContainerService(repo repositories.IContainerRepository, logger logger.I
 }
 
 func (s *ContainerService) Create(ctx context.Context, containerId string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error) {
+	if status != entities.ContainerOn && status != entities.ContainerOff {
+		err := fmt.Errorf("invalid status: %s", status)
+		s.logger.Error("failed to create container", zap.Error(err))
+		return nil, err
+	}
+
 	container, err := s.containerRepo.Create(containerId, containerName, status, ipv4)
 	if err != nil {
 		s.logger.Error("failed to create container", zap.Error(err))
@@ -58,7 +64,7 @@ func (s *ContainerService) View(ctx context.Context, filter dto.ContainerFilter,
 	}
 	limit := max(to-from+1, -1)
 
-	containers, total, err := s.containerRepo.View(filter, from, limit, sort)
+	containers, total, err := s.containerRepo.View(filter, from, limit, dto.StandardizeSort(sort))
 	if err != nil {
 		s.logger.Error("failed to view containers", zap.Error(err))
 		return nil, 0, err
@@ -71,8 +77,8 @@ func (s *ContainerService) View(ctx context.Context, filter dto.ContainerFilter,
 func (s *ContainerService) Update(ctx context.Context, containerId string, updateData dto.ContainerUpdate) error {
 	if err := s.containerRepo.Update(containerId, updateData); err != nil {
 		s.logger.Error("failed to update container", zap.Error(err))
+		return err
 	}
-
 	s.logger.Info("container updated successfully", zap.String("containerId", containerId))
 	return nil
 }
@@ -82,13 +88,14 @@ func (s *ContainerService) Delete(ctx context.Context, containerId string) error
 		s.logger.Error("failed to delete container", zap.Error(err))
 		return err
 	}
+	s.logger.Info("container deleted successfully", zap.String("containerId", containerId))
 	return nil
 }
 
 func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*dto.ImportResponse, error) {
 	f, err := excelize.OpenReader(file)
 	if err != nil {
-		s.logger.Error("failed to open excel file", zap.Error(err))
+		s.logger.Error("failed to import containers", zap.Error(err))
 		return nil, err
 	}
 	defer f.Close()
@@ -141,9 +148,9 @@ func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilte
 	}
 	limit := max(to-from+1, 1)
 
-	containers, _, err := s.containerRepo.View(filter, from, limit, sort)
+	containers, _, err := s.containerRepo.View(filter, from, limit, dto.StandardizeSort(sort))
 	if err != nil {
-		s.logger.Error("failed to fetch containers for export", zap.Error(err))
+		s.logger.Error("failed to export containers", zap.Error(err))
 		return nil, err
 	}
 
@@ -168,7 +175,7 @@ func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilte
 
 	var buf bytes.Buffer
 	if err := f.Write(&buf); err != nil {
-		s.logger.Error("failed to write excel buffer", zap.Error(err))
+		s.logger.Error("failed to export containers", zap.Error(err))
 		return nil, err
 	}
 	s.logger.Info("containers exported successfully")
@@ -194,30 +201,27 @@ func (s *ContainerService) _importContainer(ctx context.Context, containerId str
 
 	existed, err := containerRepo.FindById(containerId)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		s.logger.Error("failed to find container by id", zap.Error(err))
 		return err
 	}
 	if existed == nil {
 		existed, err = containerRepo.FindByName(containerName)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			s.logger.Error("failed to find container by name", zap.Error(err))
 			return err
 		}
 	}
 
 	if existed == nil {
-		if status == "" {
-			status = "OFF"
+		if status != entities.ContainerOn && status != entities.ContainerOff {
+			err := fmt.Errorf("invalid status: %s", status)
+			return err
 		}
 		_, err = containerRepo.Create(containerId, containerName, entities.ContainerStatus(status), ipv4)
 		if err != nil {
-			s.logger.Error("failed to create container", zap.Error(err))
 			return err
 		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		s.logger.Error("failed to commit transaction", zap.Error(err))
 		return err
 	}
 	commited = true

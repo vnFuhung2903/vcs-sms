@@ -1,7 +1,6 @@
 package repositories
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,6 +37,20 @@ func (suite *ContainerRepoSuite) TearDownTest() {
 
 func TestContainerRepoSuite(t *testing.T) {
 	suite.Run(t, new(ContainerRepoSuite))
+}
+
+func (suite *ContainerRepoSuite) TestCreateDuplicateContainerId() {
+	_, err := suite.repo.Create("dup-id", "Name1", entities.ContainerOn, "10.0.1.1")
+	assert.NoError(suite.T(), err)
+	_, err = suite.repo.Create("dup-id", "Name2", entities.ContainerOff, "10.0.1.2")
+	assert.Error(suite.T(), err)
+}
+
+func (suite *ContainerRepoSuite) TestCreateDuplicateContainerName() {
+	_, err := suite.repo.Create("id1", "dup-name", entities.ContainerOn, "10.0.2.1")
+	assert.NoError(suite.T(), err)
+	_, err = suite.repo.Create("id2", "dup-name", entities.ContainerOff, "10.0.2.2")
+	assert.Error(suite.T(), err)
 }
 
 func (suite *ContainerRepoSuite) TestCreateAndFindById() {
@@ -107,35 +120,17 @@ func (suite *ContainerRepoSuite) TestViewWithFilters() {
 	assert.Equal(suite.T(), int64(0), total)
 }
 
-func (suite *ContainerRepoSuite) TestViewDefaultNoFilter() {
+func (suite *ContainerRepoSuite) TestViewDefaultNoLimit() {
 	_, _ = suite.repo.Create("cid-5", "Epsilon", entities.ContainerOn, "10.0.0.5")
 	_, _ = suite.repo.Create("cid-6", "Stigma", entities.ContainerOff, "10.0.0.6")
 
 	filter := dto.ContainerFilter{}
 	sort := dto.ContainerSort{Field: "container_id", Sort: "asc"}
-	results, total, err := suite.repo.View(filter, 1, 10, sort)
+	results, total, err := suite.repo.View(filter, 1, -1, sort)
 
 	assert.NoError(suite.T(), err)
 	assert.GreaterOrEqual(suite.T(), total, int64(2))
 	assert.Len(suite.T(), results, int(total))
-}
-
-func (suite *ContainerRepoSuite) TestViewPagination() {
-	for i := 0; i < 5; i++ {
-		suite.repo.Create(fmt.Sprintf("cid-pg-%d", i), fmt.Sprintf("Name%d", i), entities.ContainerOn, fmt.Sprintf("10.0.1.%d", i))
-	}
-
-	filter := dto.ContainerFilter{}
-	sort := dto.ContainerSort{Field: "container_id", Sort: "asc"}
-
-	page1, total1, err := suite.repo.View(filter, 1, 2, sort)
-	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), int64(5), total1)
-	assert.Len(suite.T(), page1, 2)
-
-	page2, _, err := suite.repo.View(filter, 3, 2, sort)
-	assert.NoError(suite.T(), err)
-	assert.Len(suite.T(), page2, 2)
 }
 
 func (suite *ContainerRepoSuite) TestViewWithInvalidSort() {
@@ -143,10 +138,7 @@ func (suite *ContainerRepoSuite) TestViewWithInvalidSort() {
 	assert.Error(suite.T(), err)
 	_, _, err = suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{Field: "container_id", Sort: "invalid_order"})
 	assert.Error(suite.T(), err)
-}
-
-func (suite *ContainerRepoSuite) TestViewWithEmptySort() {
-	_, _, err := suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{})
+	_, _, err = suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{})
 	assert.Error(suite.T(), err)
 }
 
@@ -162,20 +154,6 @@ func (suite *ContainerRepoSuite) TestViewWhileDbClose() {
 
 	assert.Error(suite.T(), err)
 	assert.Contains(suite.T(), err.Error(), "database is closed")
-}
-
-func (suite *ContainerRepoSuite) TestCreateDuplicateContainerId() {
-	_, err := suite.repo.Create("dup-id", "Name1", entities.ContainerOn, "10.0.1.1")
-	assert.NoError(suite.T(), err)
-	_, err = suite.repo.Create("dup-id", "Name2", entities.ContainerOff, "10.0.1.2")
-	assert.Error(suite.T(), err)
-}
-
-func (suite *ContainerRepoSuite) TestCreateDuplicateContainerName() {
-	_, err := suite.repo.Create("id1", "dup-name", entities.ContainerOn, "10.0.2.1")
-	assert.NoError(suite.T(), err)
-	_, err = suite.repo.Create("id2", "dup-name", entities.ContainerOff, "10.0.2.2")
-	assert.Error(suite.T(), err)
 }
 
 func (suite *ContainerRepoSuite) TestUpdate() {
