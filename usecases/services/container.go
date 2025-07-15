@@ -69,38 +69,11 @@ func (s *ContainerService) View(ctx context.Context, filter dto.ContainerFilter,
 }
 
 func (s *ContainerService) Update(ctx context.Context, containerId string, updateData dto.ContainerUpdate) error {
-	tx, err := s.containerRepo.BeginTransaction(ctx)
-	if err != nil {
-		s.logger.Error("failed to begin transaction", zap.Error(err))
-		return err
-	}
-	commited := false
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-		if !commited {
-			tx.Rollback()
-		}
-	}()
-	containerRepo := s.containerRepo.WithTransaction(tx)
-
-	container, err := containerRepo.FindById(containerId)
-	if err != nil {
-		s.logger.Error("failed to find container", zap.Error(err))
-	}
-
-	if err := containerRepo.Update(container, updateData); err != nil {
+	if err := s.containerRepo.Update(containerId, updateData); err != nil {
 		s.logger.Error("failed to update container", zap.Error(err))
 	}
 
-	if err := tx.Commit().Error; err != nil {
-		s.logger.Error("failed to commit transaction", zap.Error(err))
-		return err
-	}
-
 	s.logger.Info("container updated successfully", zap.String("containerId", containerId))
-	commited = true
 	return nil
 }
 

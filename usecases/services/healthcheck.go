@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -18,14 +18,13 @@ import (
 )
 
 type IHealthcheckService interface {
-	UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate, startTime time.Time, endTime time.Time) error
+	UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate) error
 	CalculateUptimePercentage(statusList []dto.EsStatus, startTime time.Time, endTime time.Time) float64
 	GetEsStatus(ctx context.Context, ids []string, limit int, startTime time.Time, endTime time.Time) (map[string][]dto.EsStatus, error)
 }
 
 type HealthcheckService struct {
 	containerRepo repositories.IContainerRepository
-	dockerClient  docker.IDockerClient
 	esClient      *elasticsearch.Client
 	logger        logger.ILogger
 }
@@ -38,7 +37,7 @@ func NewHealthcheckService(repo repositories.IContainerRepository, dockerClient 
 	}
 }
 
-func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate, startTime time.Time, endTime time.Time) error {
+func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate) error {
 	var buf bytes.Buffer
 	indexName := "sms_container"
 
@@ -47,8 +46,8 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 		ids = append(ids, status.ContainerId)
 	}
 
-	endTime = time.Now()
-	startTime = endTime.Add(-24 * time.Hour)
+	endTime := time.Now()
+	startTime := endTime.Add(-24 * time.Hour)
 	existingDocs, err := s.GetEsStatus(ctx, ids, 1, startTime, endTime)
 	if err != nil {
 		s.logger.Error("failed to msearch container", zap.Error(err))
@@ -71,15 +70,20 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 			if err != nil {
 				s.logger.Error("failed to create json", zap.Error(err))
 			}
-			docLine, err = json.Marshal(status)
+			docLine, err = json.Marshal(dto.EsStatus{
+				ContainerId: status.ContainerId,
+				Status:      status.Status,
+				LastUpdated: time.Now().UTC().Truncate(time.Second),
+				Uptime:      0,
+			})
 			if err != nil {
 				s.logger.Error("failed to create json", zap.Error(err))
 			}
 		} else if old[0].Status == status.Status {
 			update := map[string]interface{}{
 				"doc": map[string]interface{}{
-					"uptime":       old[0].Uptime + int64(time.Now().Sub(old[0].LastUpdated)),
-					"last_updated": time.Now(),
+					"uptime":       old[0].Uptime + int64(time.Since(old[0].LastUpdated)),
+					"last_updated": time.Now().UTC().Truncate(time.Second),
 				},
 			}
 			meta := map[string]map[string]string{
@@ -101,7 +105,7 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 			newDoc := dto.EsStatus{
 				ContainerId: status.ContainerId,
 				Status:      status.Status,
-				Uptime:      int64(time.Now().Sub(old[0].LastUpdated)),
+				Uptime:      int64(time.Since(old[0].LastUpdated)),
 				LastUpdated: time.Now(),
 			}
 			meta := map[string]map[string]string{
@@ -159,27 +163,42 @@ func (s *HealthcheckService) CalculateUptimePercentage(statusList []dto.EsStatus
 	if denomirator == 0 {
 		return float64(100.0)
 	}
-	return float64(numerator / denomirator * 100.0)
+	return float64(numerator) / float64(numerator+denomirator) * 100.0
 }
 
 func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limit int, startTime time.Time, endTime time.Time) (map[string][]dto.EsStatus, error) {
 	var body strings.Builder
 
 	for _, id := range ids {
-		body.WriteString(`{"index":"sms_container"}` + "\n")
-		queryDaily := fmt.Sprintf(`{
-			"query": {
-				"bool": {
-					"must": [
-						{ "term": { "container_id": "%s" }},
-						{ "range": { "last_updated": { "gte": "%s", "lt": "%s" }}}
-					]
-				}
+		meta := map[string]string{"index": "sms_container"}
+		metaLine, _ := json.Marshal(meta)
+		body.Write(metaLine)
+		body.WriteByte('\n')
+
+		query := map[string]interface{}{
+			"query": map[string]interface{}{
+				"bool": map[string]interface{}{
+					"must": []interface{}{
+						map[string]interface{}{"term": map[string]string{"container_id.keyword": id}},
+						map[string]interface{}{
+							"range": map[string]interface{}{
+								"last_updated": map[string]string{
+									"gte": startTime.Format(time.RFC3339),
+									"lt":  endTime.Format(time.RFC3339),
+								},
+							},
+						},
+					},
+				},
 			},
-			"size": "%d",
-			"sort": [{ "last_updated": { "order": "dsc" }}]
-		}`, id, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), limit)
-		body.WriteString(queryDaily + "\n")
+			"size": limit,
+			"sort": []interface{}{
+				map[string]interface{}{"last_updated": map[string]string{"order": "desc"}},
+			},
+		}
+		queryLine, _ := json.Marshal(query)
+		body.Write(queryLine)
+		body.WriteByte('\n')
 	}
 
 	res, err := s.esClient.Msearch(
@@ -192,6 +211,12 @@ func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limi
 	}
 	defer res.Body.Close()
 
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		s.logger.Error("failed to read msearch response body", zap.Error(err))
+		return nil, err
+	}
+
 	var parsed struct {
 		Responses []struct {
 			Hits struct {
@@ -202,13 +227,12 @@ func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limi
 			} `json:"hits"`
 		} `json:"responses"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
-		s.logger.Error("failed to decode mget response body", zap.Error(err))
+	if err := json.Unmarshal(bodyBytes, &parsed); err != nil {
+		s.logger.Error("failed to decode msearch response body", zap.Error(err))
 		return nil, err
 	}
 
 	results := make(map[string][]dto.EsStatus)
-
 	for i, response := range parsed.Responses {
 		containerId := ids[i]
 		for _, hit := range response.Hits.Hits {

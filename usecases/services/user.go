@@ -10,10 +10,11 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/utils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type IUserService interface {
-	Register(username, password, email string, role entities.UserRole, scopes int64) error
+	Register(username, password, email string, role entities.UserRole, scopes int64) (*entities.User, error)
 	Login(username, password string) (*entities.User, error)
 	UpdatePassword(userId, password string) error
 	UpdateRole(userId string, role entities.UserRole) error
@@ -33,36 +34,36 @@ func NewUserService(userRepo repositories.IUserRepository, logger logger.ILogger
 	}
 }
 
-func (s *userService) Register(username, password, email string, role entities.UserRole, scopes int64) error {
+func (s *userService) Register(username, password, email string, role entities.UserRole, scopes int64) (*entities.User, error) {
 	existing, err := s.userRepo.FindByName(username)
-	if existing != nil || (err != nil && err.Error() != "record not found") {
+	if existing != nil || (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) {
 		if err == nil {
 			err = errors.New("username already taken")
 		}
 		s.logger.Error("failed to register user", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		s.logger.Error("failed to hash password", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	mail, err := mail.ParseAddress(email)
 	if err != nil {
 		s.logger.Error("failed to parse email", zap.Error(err))
-		return err
+		return nil, err
 	}
 
-	_, err = s.userRepo.Create(username, string(hash), mail.Address, role, scopes)
+	user, err := s.userRepo.Create(username, string(hash), mail.Address, role, scopes)
 	if err != nil {
 		s.logger.Error("failed to create user", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	s.logger.Info("new user registered successfully")
-	return nil
+	return user, nil
 }
 
 func (s *userService) Login(username, password string) (*entities.User, error) {

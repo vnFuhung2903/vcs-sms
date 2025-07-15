@@ -2,20 +2,36 @@ package middlewares
 
 import (
 	"net/http"
-	"os"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/vnFuhung2903/vcs-sms/pkg/env"
 )
 
-var jwtSecret = []byte(os.Getenv("JWT_SECRET_KEY"))
+type IJWTMiddleware interface {
+	GenerateJWT(userId string, username string, scope []string) error
+	RequireScope(requiredScope string) gin.HandlerFunc
+}
 
-const jwtExpiry = time.Hour * 24 * 7 // 1 week
+type jwtMiddleware struct {
+	redisClient *redis.Client
+	jwtSecret   []byte
+}
 
-func GenerateJWT(userId string, username string, scope []string) (string, error) {
+func NewJWTMiddleware(redisClient *redis.Client, env env.AuthEnv) IJWTMiddleware {
+	return &jwtMiddleware{
+		redisClient: redisClient,
+		jwtSecret:   []byte(env.JWTSecret),
+	}
+}
+
+const jwtExpiry = time.Hour * 24 * 7
+
+func (m *jwtMiddleware) GenerateJWT(userId string, username string, scope []string) error {
 	claims := jwt.MapClaims{
 		"sub":   userId,
 		"name":  username,
@@ -23,12 +39,19 @@ func GenerateJWT(userId string, username string, scope []string) (string, error)
 		"exp":   time.Now().Add(jwtExpiry).Unix(),
 		"iat":   time.Now().Unix(),
 	}
-
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	jwtToken, err := token.SignedString(m.jwtSecret)
+	if err != nil {
+		return err
+	}
+
+	if err := m.redisClient.Set("token", jwtToken, time.Hour*24*7).Err(); err != nil {
+		return err
+	}
+	return nil
 }
 
-func RequireScope(requiredScope string) gin.HandlerFunc {
+func (m *jwtMiddleware) RequireScope(requiredScope string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -39,7 +62,7 @@ func RequireScope(requiredScope string) gin.HandlerFunc {
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 		jwtToken, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
+			return m.jwtSecret, nil
 		})
 		if err != nil || !jwtToken.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})

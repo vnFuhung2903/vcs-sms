@@ -1,23 +1,24 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
+	"github.com/vnFuhung2903/vcs-sms/pkg/middlewares"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
 	"github.com/vnFuhung2903/vcs-sms/utils"
-	"github.com/vnFuhung2903/vcs-sms/utils/middlewares"
 )
 
 type UserHandler struct {
-	authService services.IAuthService
-	userService services.IUserService
+	userService   services.IUserService
+	jwtMiddleware middlewares.IJWTMiddleware
 }
 
-func NewUserHandler(authService services.IAuthService, userService services.IUserService) *UserHandler {
-	return &UserHandler{authService, userService}
+func NewUserHandler(userService services.IUserService, jwtMiddleware middlewares.IJWTMiddleware) *UserHandler {
+	return &UserHandler{userService, jwtMiddleware}
 }
 
 func (h *UserHandler) SetupRoutes(r *gin.Engine) {
@@ -26,12 +27,12 @@ func (h *UserHandler) SetupRoutes(r *gin.Engine) {
 		userRoutes.POST("/register", h.Register)
 		userRoutes.POST("/login", h.Login)
 
-		userGroup := userRoutes.Group("", middlewares.RequireScope("user:modify"))
+		userGroup := userRoutes.Group("", h.jwtMiddleware.RequireScope("user:modify"))
 		{
 			userGroup.PUT("/update/password/:id", h.UpdatePassword)
 		}
 
-		adminGroup := userRoutes.Group("", middlewares.RequireScope("user:manage"))
+		adminGroup := userRoutes.Group("", h.jwtMiddleware.RequireScope("user:manage"))
 		{
 			adminGroup.PUT("/update/role/:id", h.UpdateRole)
 			adminGroup.PUT("/update/scope/:id", h.UpdateScope)
@@ -61,14 +62,16 @@ func (h *UserHandler) Register(c *gin.Context) {
 	}
 
 	scopes := utils.UserRoleToDefaultScopes(entities.UserRole(req.Role), nil)
-	if err := h.userService.Register(req.Username, req.Password, req.Email, entities.UserRole(req.Role), utils.ScopesToHashMap(scopes)); err != nil {
+	user, err := h.userService.Register(req.Username, req.Password, req.Email, entities.UserRole(req.Role), utils.ScopesToHashMap(scopes))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
 		return
 	}
 
-	if err := h.authService.Setup(req.Username, req.Username, utils.ScopesToHashMap(scopes)); err != nil {
+	if err := h.jwtMiddleware.GenerateJWT(user.ID, user.Username, utils.HashMapToScopes(user.Scopes)); err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
@@ -106,7 +109,8 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.Setup(req.Username, req.Username, user.Scopes); err != nil {
+	if err := h.jwtMiddleware.GenerateJWT(user.ID, user.Username, utils.HashMapToScopes(user.Scopes)); err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})

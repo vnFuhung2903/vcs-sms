@@ -72,7 +72,7 @@ func initLogger(env env.LoggerEnv) (*Logger, error) {
 	consoleCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), zapcore.AddSync(os.Stdout), level)
 	core := zapcore.NewTee(fileCore, consoleCore)
 
-	logger := &Logger{logger: zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))}
+	logger := &Logger{logger: zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zapcore.ErrorLevel))}
 	return logger, nil
 }
 

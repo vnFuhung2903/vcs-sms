@@ -6,39 +6,40 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/dto"
+	"github.com/vnFuhung2903/vcs-sms/pkg/middlewares"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
-	"github.com/vnFuhung2903/vcs-sms/utils/middlewares"
 )
 
 type ContainerHandler struct {
 	containerService services.IContainerService
+	jwtMiddleware    middlewares.IJWTMiddleware
 }
 
-func NewContainerHandler(containerService services.IContainerService) *ContainerHandler {
-	return &ContainerHandler{containerService}
+func NewContainerHandler(containerService services.IContainerService, jwtMiddleware middlewares.IJWTMiddleware) *ContainerHandler {
+	return &ContainerHandler{containerService, jwtMiddleware}
 }
 
 func (h *ContainerHandler) SetupRoutes(r *gin.Engine) {
 	containerRoutes := r.Group("/containers")
 	{
-		createGroup := containerRoutes.Group("", middlewares.RequireScope("container:create"))
+		createGroup := containerRoutes.Group("", h.jwtMiddleware.RequireScope("container:create"))
 		{
 			createGroup.POST("/create", h.Create)
 			createGroup.POST("/import", h.Import)
 		}
 
-		viewGroup := containerRoutes.Group("", middlewares.RequireScope("container:view"))
+		viewGroup := containerRoutes.Group("", h.jwtMiddleware.RequireScope("container:view"))
 		{
 			viewGroup.GET("/view", h.View)
 			viewGroup.GET("/export", h.Export)
 		}
 
-		modifyGroup := containerRoutes.Group("", middlewares.RequireScope("container:update"))
+		modifyGroup := containerRoutes.Group("", h.jwtMiddleware.RequireScope("container:update"))
 		{
 			modifyGroup.PUT("/update/:id", h.Update)
 		}
 
-		deleteGroup := containerRoutes.Group("", middlewares.RequireScope("container:delete"))
+		deleteGroup := containerRoutes.Group("", h.jwtMiddleware.RequireScope("container:delete"))
 		{
 			deleteGroup.DELETE("/delete/:id", h.Delete)
 		}

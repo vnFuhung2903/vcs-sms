@@ -6,24 +6,26 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
+	"github.com/vnFuhung2903/vcs-sms/pkg/middlewares"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
-	"github.com/vnFuhung2903/vcs-sms/utils/middlewares"
 )
 
 type ReportHandler struct {
 	containerService   services.IContainerService
 	healthcheckService services.IHealthcheckService
 	reportService      services.IReportService
+	jwtMiddleware      middlewares.IJWTMiddleware
 }
 
-func NewReportHandler(containerService services.IContainerService, healthcheckService services.IHealthcheckService, reportService services.IReportService) *ReportHandler {
-	return &ReportHandler{containerService, healthcheckService, reportService}
+func NewReportHandler(containerService services.IContainerService, healthcheckService services.IHealthcheckService, reportService services.IReportService, jwtMiddleware middlewares.IJWTMiddleware) *ReportHandler {
+	return &ReportHandler{containerService, healthcheckService, reportService, jwtMiddleware}
 }
 
 func (h *ReportHandler) SetupRoutes(r *gin.Engine) {
-	reportRoutes := r.Group("/report", middlewares.RequireScope("report:mail"))
+	reportRoutes := r.Group("/report", h.jwtMiddleware.RequireScope("report:mail"))
 	{
 		reportRoutes.GET("/mail", h.SendEmail)
+		reportRoutes.POST("/update", h.Update)
 	}
 }
 
@@ -88,6 +90,8 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		ContainerOnCount:  onCount,
 		ContainerOffCount: offCount,
 		AverageUptime:     averageUptime,
+		StartTime:         req.StartTime,
+		EndTime:           req.EndTime,
 	}
 
 	if err := h.reportService.SendEmail(c.Request.Context(), &response, req.Email, req.StartTime, req.EndTime); err != nil {
@@ -98,4 +102,33 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *ReportHandler) Update(c *gin.Context) {
+	filter := dto.ContainerFilter{}
+	sort := dto.StandardizeSort(dto.ContainerSort{})
+
+	data, _, err := h.containerService.View(c.Request.Context(), filter, 1, -1, sort)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	var statusList []dto.EsStatusUpdate
+	for _, container := range data {
+		statusList = append(statusList, dto.EsStatusUpdate{
+			ContainerId: container.ContainerId,
+			Status:      container.Status,
+		})
+	}
+
+	if err := h.healthcheckService.UpdateStatus(c.Request.Context(), statusList); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+	c.Status(http.StatusOK)
 }

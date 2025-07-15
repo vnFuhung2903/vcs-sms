@@ -102,7 +102,7 @@ func (suite *ContainerRepoSuite) TestViewWithFilters() {
 
 	// Multiple filters
 	filter = dto.ContainerFilter{ContainerId: "cid-3", Ipv4: "10.0.0.4"}
-	result, total, err = suite.repo.View(filter, 1, 10, sort)
+	_, total, err = suite.repo.View(filter, 1, 10, sort)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(0), total)
 }
@@ -179,9 +179,9 @@ func (suite *ContainerRepoSuite) TestCreateDuplicateContainerName() {
 }
 
 func (suite *ContainerRepoSuite) TestUpdate() {
-	c, _ := suite.repo.Create("cid-7", "Zeta", entities.ContainerOff, "10.0.0.7")
+	_, _ = suite.repo.Create("cid-7", "Zeta", entities.ContainerOff, "10.0.0.7")
 	update := dto.ContainerUpdate{Status: entities.ContainerOn}
-	err := suite.repo.Update(c, update)
+	err := suite.repo.Update("cid-7", update)
 	assert.NoError(suite.T(), err)
 	found, _ := suite.repo.FindById("cid-7")
 	assert.Equal(suite.T(), entities.ContainerOn, found.Status)
@@ -189,46 +189,22 @@ func (suite *ContainerRepoSuite) TestUpdate() {
 }
 
 func (suite *ContainerRepoSuite) TestUpdateNonExistent() {
-	c := &entities.Container{
-		ContainerId:   "not-exist",
-		ContainerName: "Ghost",
-		Status:        entities.ContainerOff,
-	}
 	update := dto.ContainerUpdate{Status: entities.ContainerOn}
-	err := suite.repo.Update(c, update)
+	err := suite.repo.Update("not-exist", update)
 	assert.NoError(suite.T(), err)
-}
-
-func (suite *ContainerRepoSuite) TestUpdateMultipleFields() {
-	c, _ := suite.repo.Create("cid-8", "Eta", entities.ContainerOff, "10.0.0.8")
-	update := dto.ContainerUpdate{
-		Status: entities.ContainerOn,
-	}
-	err := suite.repo.Update(c, update)
-	assert.NoError(suite.T(), err)
-
-	found, _ := suite.repo.FindById("cid-8")
-	assert.Equal(suite.T(), entities.ContainerOn, found.Status)
-	assert.Equal(suite.T(), "Eta", found.ContainerName)
-}
-
-func (suite *ContainerRepoSuite) TestUpdateNilContainer() {
-	update := dto.ContainerUpdate{Status: entities.ContainerOn}
-	err := suite.repo.Update(nil, update)
-	assert.Error(suite.T(), err)
 }
 
 func (suite *ContainerRepoSuite) TestUpdateEmptyUpdateData() {
-	c, _ := suite.repo.Create("cid-9", "Theta", entities.ContainerOff, "10.0.0.9")
-	err := suite.repo.Update(c, dto.ContainerUpdate{})
+	_, _ = suite.repo.Create("cid-8", "Eta", entities.ContainerOff, "10.0.0.8")
+	err := suite.repo.Update("cid-8", dto.ContainerUpdate{})
 	assert.NoError(suite.T(), err)
 }
 
 func (suite *ContainerRepoSuite) TestDelete() {
-	_, _ = suite.repo.Create("cid-10", "Iota", entities.ContainerOn, "10.0.0.10")
-	err := suite.repo.Delete("cid-10")
+	_, _ = suite.repo.Create("cid-9", "Theta", entities.ContainerOn, "10.0.0.9")
+	err := suite.repo.Delete("cid-9")
 	assert.NoError(suite.T(), err)
-	_, err = suite.repo.FindById("cid-10")
+	_, err = suite.repo.FindById("cid-9")
 	assert.Error(suite.T(), err)
 }
 
@@ -241,10 +217,10 @@ func (suite *ContainerRepoSuite) TestBeginAndWithTransaction() {
 	tx, err := suite.repo.BeginTransaction(suite.T().Context())
 	assert.NoError(suite.T(), err)
 	txRepo := suite.repo.WithTransaction(tx)
-	_, err = txRepo.Create("cid-20", "Kappa", entities.ContainerOn, "10.0.0.20")
+	_, err = txRepo.Create("cid-10", "Iota", entities.ContainerOn, "10.0.0.10")
 	assert.NoError(suite.T(), err)
 	tx.Rollback()
-	_, err = suite.repo.FindById("cid-20")
+	_, err = suite.repo.FindById("cid-10")
 	assert.Error(suite.T(), err)
 }
 

@@ -7,26 +7,28 @@ import (
 )
 
 type ReportRequest struct {
-	StartTime time.Time `json:"start_time"`
-	EndTime   time.Time `json:"end_time"`
-	Email     string    `json:"email"`
+	StartTime time.Time `form:"start_time"`
+	EndTime   time.Time `form:"end_time"`
+	Email     string    `form:"email"`
 }
 
 type ReportResponse struct {
-	ContainerCount    int     `json:"container_count"`
-	ContainerOnCount  int     `json:"container_on_count"`
-	ContainerOffCount int     `json:"container_off_count"`
-	AverageUptime     float64 `json:"average_uptime"`
+	ContainerCount    int       `json:"container_count"`
+	ContainerOnCount  int       `json:"container_on_count"`
+	ContainerOffCount int       `json:"container_off_count"`
+	AverageUptime     float64   `json:"average_uptime"`
+	StartTime         time.Time `form:"start_time"`
+	EndTime           time.Time `form:"end_time"`
 }
 
 type EsStatus struct {
-	ContainerId string                   `json:"server_id"`
+	ContainerId string                   `json:"container_id"`
 	Status      entities.ContainerStatus `json:"status"`
 	Uptime      int64                    `json:"uptime"`
 	LastUpdated time.Time                `json:"last_updated"`
 }
 
 type EsStatusUpdate struct {
-	ContainerId string                   `json:"server_id"`
+	ContainerId string                   `json:"container_id"`
 	Status      entities.ContainerStatus `json:"status"`
 }
