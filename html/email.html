@@ -16,7 +16,7 @@
     <div class="container">
         <div class="header">
             <h1>Daily Container Report</h1>
-            <p>{{.StartTime.Format "2000-01-01"}} - {{.EndTime.Format "2000-01-01"}}</p>
+            <p>{{ .StartTime | formatTime }} - {{ .EndTime | formatTime }}</p>
         </div>
         <div class="content">
             <h2>Container Statistics</h2>
@@ -26,16 +26,16 @@
                     <div>Total Containers</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value" style="color: #27ae60;">{{.ContainerOnCount}}</div>
+                    <div class="stat-value" style="color: #27ae60;">{{ .ContainerOnCount }}</div>
                     <div>Online Containers</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value" style="color: #e74c3c;">{{.ContainerOffCount}}</div>
+                    <div class="stat-value" style="color: #e74c3c;">{{ .ContainerOffCount }}</div>
                     <div>Offline Containers</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value">{{printf "%.2f%%" .AverageUptime}}</div>
-                    <div>Average Uptime</div>
+                    <div class="stat-value">{{ printf "%.2f h" .TotalUptime }}</div>
+                    <div>Total Uptime</div>
                 </div>
             </div>
         </div>

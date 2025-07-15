@@ -40,11 +40,19 @@ func (s *ReportService) SendEmail(ctx context.Context, report *dto.ReportRespons
 		return err
 	}
 
-	temp, err := template.New("report").Parse(string(emailTemplate))
+	funcMap := template.FuncMap{
+		"formatTime": func(t time.Time) string {
+			return t.Format("2006-01-02")
+		},
+	}
+	temp, err := template.New("report").Funcs(funcMap).Parse(string(emailTemplate))
 	if err != nil {
 		s.logger.Error("failed to parse template", zap.Error(err))
 		return err
 	}
+
+	fmt.Println("StartTime:", report.StartTime)
+	fmt.Println("EndTime:", report.EndTime)
 
 	var buf bytes.Buffer
 	if err := temp.Execute(&buf, report); err != nil {
@@ -66,8 +74,6 @@ func (s *ReportService) SendEmail(ctx context.Context, report *dto.ReportRespons
 		s.mailUsername,
 		s.mailPassword,
 	)
-
-	fmt.Println(s.mailUsername, to, s.mailPassword)
 
 	if err := dial.DialAndSend(message); err != nil {
 		s.logger.Error("failed to send email", zap.Error(err))

@@ -78,18 +78,17 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	averageUptime := 0.0
+	totalUptime := 0.0
 	for _, id := range ids {
 		uptime := h.healthcheckService.CalculateUptimePercentage(results[id], req.StartTime, req.EndTime)
-		averageUptime += uptime
+		totalUptime += uptime
 	}
-	averageUptime /= float64(total)
 
 	response := dto.ReportResponse{
 		ContainerCount:    int(total),
 		ContainerOnCount:  onCount,
 		ContainerOffCount: offCount,
-		AverageUptime:     averageUptime,
+		TotalUptime:       totalUptime,
 		StartTime:         req.StartTime,
 		EndTime:           req.EndTime,
 	}

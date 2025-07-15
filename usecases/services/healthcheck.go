@@ -144,26 +144,19 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 }
 
 func (s *HealthcheckService) CalculateUptimePercentage(statusList []dto.EsStatus, startTime time.Time, endTime time.Time) float64 {
-	numerator := 0
-	denomirator := 0
+	result := 0.0
+	if endTime.After(time.Now()) {
+		endTime = time.Now()
+	}
 	prevTime := endTime
 	for _, status := range statusList {
 		if status.Status == entities.ContainerOn {
-			numerator += int(prevTime.Sub(status.LastUpdated))
+			result += prevTime.Sub(status.LastUpdated).Hours()
 		} else {
-			denomirator += int(prevTime.Sub(status.LastUpdated))
+			prevTime = status.LastUpdated
 		}
-		prevTime = status.LastUpdated
 	}
-	if statusList[len(statusList)-1].Status == entities.ContainerOn {
-		denomirator += int(prevTime.Sub(startTime))
-	} else {
-		numerator += int(prevTime.Sub(startTime))
-	}
-	if denomirator == 0 {
-		return float64(100.0)
-	}
-	return float64(numerator) / float64(numerator+denomirator) * 100.0
+	return result
 }
 
 func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limit int, startTime time.Time, endTime time.Time) (map[string][]dto.EsStatus, error) {

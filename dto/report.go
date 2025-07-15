@@ -16,7 +16,7 @@ type ReportResponse struct {
 	ContainerCount    int       `json:"container_count"`
 	ContainerOnCount  int       `json:"container_on_count"`
 	ContainerOffCount int       `json:"container_off_count"`
-	AverageUptime     float64   `json:"average_uptime"`
+	TotalUptime       float64   `json:"total_uptime"`
 	StartTime         time.Time `form:"start_time"`
 	EndTime           time.Time `form:"end_time"`
 }
