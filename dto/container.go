@@ -39,24 +39,13 @@ type ContainerSort struct {
 	Sort  SortOrder `form:"order"`
 }
 
-var sortField = map[string]bool{
+var SortField = map[string]bool{
 	"container_id":   true,
 	"container_name": true,
 	"status":         true,
 	"ipv4":           true,
 	"created_at":     true,
 	"updated_at":     true,
-}
-
-func StandardizeSort(sort ContainerSort) ContainerSort {
-	standardizedSort := sort
-	if !sortField[sort.Field] {
-		standardizedSort.Field = "container_id"
-	}
-	if sort.Sort != Asc {
-		standardizedSort.Sort = Dsc
-	}
-	return standardizedSort
 }
 
 type SortOrder string

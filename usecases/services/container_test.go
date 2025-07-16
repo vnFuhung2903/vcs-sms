@@ -108,7 +108,7 @@ func (s *ContainerServiceSuite) TestViewInvalidRange() {
 func (s *ContainerServiceSuite) TestViewInvalidSort() {
 	filter := dto.ContainerFilter{}
 	inputSort := dto.ContainerSort{Field: "not-valid", Sort: "not-valid"}
-	expectedSort := dto.StandardizeSort(inputSort)
+	expectedSort := dto.ContainerSort{Field: "container_id", Sort: "desc"}
 	expected := []*entities.Container{{ContainerId: "abc"}}
 
 	s.mockRepo.EXPECT().View(filter, 1, 10, expectedSort).Return(expected, int64(1), nil)
@@ -231,7 +231,7 @@ func (s *ContainerServiceSuite) TestExportInvalidRange() {
 func (s *ContainerServiceSuite) TestExportInvalidSort() {
 	filter := dto.ContainerFilter{}
 	inputSort := dto.ContainerSort{Field: "not-valid", Sort: "not-valid"}
-	expectedSort := dto.StandardizeSort(inputSort)
+	expectedSort := dto.ContainerSort{Field: "container_id", Sort: "desc"}
 	from, to := 1, 5
 	containers := []*entities.Container{
 		{

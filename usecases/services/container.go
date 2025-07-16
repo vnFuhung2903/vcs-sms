@@ -63,7 +63,14 @@ func (s *ContainerService) View(ctx context.Context, filter dto.ContainerFilter,
 	}
 	limit := max(to-from+1, -1)
 
-	containers, total, err := s.containerRepo.View(filter, from, limit, dto.StandardizeSort(sort))
+	if !dto.SortField[sort.Field] {
+		sort.Field = "container_id"
+	}
+	if sort.Sort != dto.Asc {
+		sort.Sort = dto.Dsc
+	}
+
+	containers, total, err := s.containerRepo.View(filter, from, limit, sort)
 	if err != nil {
 		s.logger.Error("failed to view containers", zap.Error(err))
 		return nil, 0, err
@@ -148,7 +155,14 @@ func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilte
 	}
 	limit := max(to-from+1, 1)
 
-	containers, _, err := s.containerRepo.View(filter, from, limit, dto.StandardizeSort(sort))
+	if !dto.SortField[sort.Field] {
+		sort.Field = "container_id"
+	}
+	if sort.Sort != dto.Asc {
+		sort.Sort = dto.Dsc
+	}
+
+	containers, _, err := s.containerRepo.View(filter, from, limit, sort)
 	if err != nil {
 		return nil, err
 	}
