@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -71,7 +70,6 @@ func (h *UserHandler) Register(c *gin.Context) {
 	}
 
 	if err := h.jwtMiddleware.GenerateJWT(user.ID, user.Username, utils.HashMapToScopes(user.Scopes)); err != nil {
-		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
@@ -110,7 +108,6 @@ func (h *UserHandler) Login(c *gin.Context) {
 	}
 
 	if err := h.jwtMiddleware.GenerateJWT(user.ID, user.Username, utils.HashMapToScopes(user.Scopes)); err != nil {
-		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})

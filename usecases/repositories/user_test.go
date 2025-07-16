@@ -118,15 +118,29 @@ func (suite *UserRepoSuite) TestUpdateScope() {
 	assert.Equal(suite.T(), int64(5), updated.Scopes)
 }
 
+func (suite *UserRepoSuite) TestUpdateNilUser() {
+	err := suite.repo.UpdateRole(nil, entities.Manager)
+	assert.Error(suite.T(), err)
+
+	err = suite.repo.UpdateRole(nil, entities.Manager)
+	assert.Error(suite.T(), err)
+
+	err = suite.repo.UpdateScope(nil, 1)
+	assert.Error(suite.T(), err)
+}
+
 func (suite *UserRepoSuite) TestDelete() {
 	user, _ := suite.repo.Create("heidi", "hash", "heidi@example.com", entities.Developer, 1)
 	err := suite.repo.Delete(user.ID)
 	assert.NoError(suite.T(), err)
+
+	_, err = suite.repo.FindById("heidi")
+	assert.Error(suite.T(), err)
 }
 
 func (suite *UserRepoSuite) TestDeleteNonExistent() {
-	err := suite.repo.Delete("non-existent-id")
-	assert.NoError(suite.T(), err) // GORM doesn't error on delete if record not found
+	err := suite.repo.Delete("not-exist")
+	assert.NoError(suite.T(), err)
 }
 
 func (suite *UserRepoSuite) TestBeginTransactionError() {

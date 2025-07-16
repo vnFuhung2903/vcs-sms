@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
@@ -22,18 +21,18 @@ import (
 
 type ContainerServiceSuite struct {
 	suite.Suite
-	ctrl         *gomock.Controller
-	mockRepo     *repositories.MockIContainerRepository
-	logger       *logger.MockILogger
-	containerSvc IContainerService
-	ctx          context.Context
+	ctrl             *gomock.Controller
+	containerService IContainerService
+	mockRepo         *repositories.MockIContainerRepository
+	logger           *logger.MockILogger
+	ctx              context.Context
 }
 
 func (s *ContainerServiceSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockRepo = repositories.NewMockIContainerRepository(s.ctrl)
 	s.logger = logger.NewMockILogger(s.ctrl)
-	s.containerSvc = NewContainerService(s.mockRepo, s.logger)
+	s.containerService = NewContainerService(s.mockRepo, s.logger)
 	s.ctx = context.Background()
 }
 
@@ -55,7 +54,7 @@ func (s *ContainerServiceSuite) TestCreate() {
 	s.mockRepo.EXPECT().Create("test", "container", entities.ContainerStatus("ON"), "127.0.0.1").Return(expected, nil)
 	s.logger.EXPECT().Info("container created successfully", zap.String("containerId", expected.ContainerId)).Times(1)
 
-	result, err := s.containerSvc.Create(s.ctx, "test", "container", entities.ContainerStatus("ON"), "127.0.0.1")
+	result, err := s.containerService.Create(s.ctx, "test", "container", entities.ContainerStatus("ON"), "127.0.0.1")
 	s.NoError(err)
 	s.Equal(expected, result)
 }
@@ -64,7 +63,7 @@ func (s *ContainerServiceSuite) TestCreateError() {
 	s.mockRepo.EXPECT().Create("test", "container", entities.ContainerStatus("ON"), "127.0.0.1").Return(nil, errors.New("db error"))
 	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
 
-	result, err := s.containerSvc.Create(s.ctx, "test", "container", entities.ContainerStatus("ON"), "127.0.0.1")
+	result, err := s.containerService.Create(s.ctx, "test", "container", entities.ContainerStatus("ON"), "127.0.0.1")
 	s.ErrorContains(err, "db error")
 	s.Nil(result)
 }
@@ -73,7 +72,7 @@ func (s *ContainerServiceSuite) TestCreateWithInvalidStatus() {
 	invalidStatus := entities.ContainerStatus("INVALID")
 	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
 
-	result, err := s.containerSvc.Create(s.ctx, "test123", "test-container", invalidStatus, "192.168.1.1")
+	result, err := s.containerService.Create(s.ctx, "test123", "test-container", invalidStatus, "192.168.1.1")
 	s.Error(err)
 	s.Nil(result)
 }
@@ -86,7 +85,7 @@ func (s *ContainerServiceSuite) TestView() {
 	s.mockRepo.EXPECT().View(filter, 1, 10, sort).Return(expected, int64(1), nil)
 	s.logger.EXPECT().Info("containers listed successfully", gomock.Any()).Times(1)
 
-	result, total, err := s.containerSvc.View(s.ctx, filter, 1, 10, sort)
+	result, total, err := s.containerService.View(s.ctx, filter, 1, 10, sort)
 	s.NoError(err)
 	s.Equal(int64(1), total)
 	s.Equal(expected, result)
@@ -96,13 +95,13 @@ func (s *ContainerServiceSuite) TestViewError() {
 	s.mockRepo.EXPECT().View(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, int64(0), errors.New("db error"))
 	s.logger.EXPECT().Error("failed to view containers", gomock.Any()).Times(1)
 
-	_, _, err := s.containerSvc.View(s.ctx, dto.ContainerFilter{}, 1, 10, dto.ContainerSort{})
+	_, _, err := s.containerService.View(s.ctx, dto.ContainerFilter{}, 1, 10, dto.ContainerSort{})
 	s.ErrorContains(err, "db error")
 }
 
 func (s *ContainerServiceSuite) TestViewInvalidRange() {
 	s.logger.EXPECT().Error("failed to view containers", gomock.Any()).Times(1)
-	_, _, err := s.containerSvc.View(s.ctx, dto.ContainerFilter{}, 0, 10, dto.ContainerSort{})
+	_, _, err := s.containerService.View(s.ctx, dto.ContainerFilter{}, 0, 10, dto.ContainerSort{})
 	s.ErrorContains(err, "invalid range")
 }
 
@@ -115,7 +114,7 @@ func (s *ContainerServiceSuite) TestViewInvalidSort() {
 	s.mockRepo.EXPECT().View(filter, 1, 10, expectedSort).Return(expected, int64(1), nil)
 	s.logger.EXPECT().Info("containers listed successfully", gomock.Any()).Times(1)
 
-	result, total, err := s.containerSvc.View(s.ctx, filter, 1, 10, inputSort)
+	result, total, err := s.containerService.View(s.ctx, filter, 1, 10, inputSort)
 	s.NoError(err)
 	s.Equal(int64(1), total)
 	s.Equal(expected, result)
@@ -127,31 +126,31 @@ func (s *ContainerServiceSuite) TestUpdate() {
 	s.mockRepo.EXPECT().Update("test", updateData).Return(nil)
 	s.logger.EXPECT().Info("container updated successfully", gomock.Any()).Times(1)
 
-	err := s.containerSvc.Update(s.ctx, "test", updateData)
+	err := s.containerService.Update(s.ctx, "test", updateData)
 	s.NoError(err)
 }
 
-func (s *ContainerServiceSuite) TestUpdateFails() {
+func (s *ContainerServiceSuite) TestUpdateError() {
 	updateData := dto.ContainerUpdate{Status: "OFF"}
 
 	s.mockRepo.EXPECT().Update("test", updateData).Return(errors.New("update failed"))
 	s.logger.EXPECT().Error("failed to update container", gomock.Any()).Times(1)
 
-	err := s.containerSvc.Update(s.ctx, "test", updateData)
+	err := s.containerService.Update(s.ctx, "test", updateData)
 	s.ErrorContains(err, "update failed")
 }
 
 func (s *ContainerServiceSuite) TestDelete() {
 	s.mockRepo.EXPECT().Delete("test").Return(nil)
 	s.logger.EXPECT().Info("container deleted successfully", zap.String("containerId", "test")).Times(1)
-	err := s.containerSvc.Delete(s.ctx, "test")
+	err := s.containerService.Delete(s.ctx, "test")
 	s.NoError(err)
 }
 
 func (s *ContainerServiceSuite) TestDeleteError() {
 	s.mockRepo.EXPECT().Delete("test").Return(errors.New("delete failed"))
 	s.logger.EXPECT().Error(gomock.Any(), gomock.Any()).Times(1)
-	err := s.containerSvc.Delete(s.ctx, "test")
+	err := s.containerService.Delete(s.ctx, "test")
 	s.Error(err)
 }
 
@@ -173,7 +172,7 @@ func (s *ContainerServiceSuite) TestImportInvalidExcelFile() {
 
 	s.logger.EXPECT().Error(gomock.Any(), gomock.Any()).Times(1)
 
-	resp, err := s.containerSvc.Import(s.ctx, fakeFile)
+	resp, err := s.containerService.Import(s.ctx, fakeFile)
 	s.Error(err)
 	s.Nil(resp)
 }
@@ -196,7 +195,7 @@ func (s *ContainerServiceSuite) TestImportReadRowsError() {
 
 	s.logger.EXPECT().Error(gomock.Any(), gomock.Any()).Times(1)
 
-	resp, err := s.containerSvc.Import(s.ctx, fakeFile)
+	resp, err := s.containerService.Import(s.ctx, fakeFile)
 	s.Error(err)
 	s.Nil(resp)
 }
@@ -218,14 +217,14 @@ func (s *ContainerServiceSuite) TestExport() {
 	s.mockRepo.EXPECT().View(filter, from, to-from+1, sort).Return(containers, int64(len(containers)), nil)
 	s.logger.EXPECT().Info("containers exported successfully").Times(1)
 
-	result, err := s.containerSvc.Export(s.ctx, filter, from, to, sort)
+	result, err := s.containerService.Export(s.ctx, filter, from, to, sort)
 	s.NoError(err)
 	s.True(len(result) > 0)
 }
 
 func (s *ContainerServiceSuite) TestExportInvalidRange() {
 	s.logger.EXPECT().Error("failed to export containers", gomock.Any()).Times(1)
-	_, err := s.containerSvc.Export(s.ctx, dto.ContainerFilter{}, 0, 10, dto.ContainerSort{})
+	_, err := s.containerService.Export(s.ctx, dto.ContainerFilter{}, 0, 10, dto.ContainerSort{})
 	s.ErrorContains(err, "invalid range")
 }
 
@@ -247,7 +246,7 @@ func (s *ContainerServiceSuite) TestExportInvalidSort() {
 	s.mockRepo.EXPECT().View(filter, from, to-from+1, expectedSort).Return(containers, int64(1), nil)
 	s.logger.EXPECT().Info("containers exported successfully").Times(1)
 
-	result, err := s.containerSvc.Export(s.ctx, filter, from, to, inputSort)
+	result, err := s.containerService.Export(s.ctx, filter, from, to, inputSort)
 	s.NoError(err)
 	s.NotNil(result)
 	s.True(len(result) > 0)
@@ -259,9 +258,8 @@ func (s *ContainerServiceSuite) TestExportError() {
 	from, to := 1, 5
 
 	s.mockRepo.EXPECT().View(filter, from, to-from+1, sort).Return(nil, int64(0), errors.New("fetch error"))
-	s.logger.EXPECT().Error("failed to export containers", gomock.Any()).Times(1)
 
-	_, err := s.containerSvc.Export(s.ctx, filter, from, to, sort)
+	_, err := s.containerService.Export(s.ctx, filter, from, to, sort)
 	s.ErrorContains(err, "fetch error")
 }
 
@@ -274,7 +272,7 @@ func (s *ContainerServiceSuite) TestExportWithEmptyData() {
 	s.mockRepo.EXPECT().View(filter, from, to-from+1, sort).Return(containers, int64(0), nil)
 	s.logger.EXPECT().Info(gomock.Any(), gomock.Any()).Times(1)
 
-	result, err := s.containerSvc.Export(s.ctx, filter, from, to, sort)
+	result, err := s.containerService.Export(s.ctx, filter, from, to, sort)
 	s.NoError(err)
 	s.True(len(result) > 0)
 }
@@ -298,7 +296,7 @@ func (s *ContainerServiceSuite) TestImportWithValidExcelFile() {
 		Closer:   io.NopCloser(nil),
 	}
 
-	resp, err := s.containerSvc.Import(s.ctx, fakeFile)
+	resp, err := s.containerService.Import(s.ctx, fakeFile)
 	s.Error(err)
 	s.Nil(resp)
 }
@@ -335,7 +333,7 @@ func (s *ContainerServiceSuite) TestImportWithInvalidRows() {
 		Closer:   io.NopCloser(nil),
 	}
 
-	resp, err := s.containerSvc.Import(s.ctx, fakeFile)
+	resp, err := s.containerService.Import(s.ctx, fakeFile)
 	s.NoError(err)
 	s.NotNil(resp)
 	s.Equal(0, resp.SuccessCount)
@@ -343,8 +341,6 @@ func (s *ContainerServiceSuite) TestImportWithInvalidRows() {
 }
 
 func (s *ContainerServiceSuite) TestImport() {
-	s.logger.EXPECT().Info("containers imported successfully").Times(1)
-
 	f := excelize.NewFile()
 	sheet := f.GetSheetName(0)
 	f.SetCellValue(sheet, "A1", "Container ID")
@@ -380,119 +376,18 @@ func (s *ContainerServiceSuite) TestImport() {
 		Status:        entities.ContainerOn,
 		Ipv4:          "127.0.0.1",
 	}
+	s.mockRepo.EXPECT().Create("test", "container", entities.ContainerOn, "127.0.0.1").Return(container, nil)
+	s.logger.EXPECT().Info("container created successfully", zap.String("containerId", container.ContainerId)).Times(1)
+	s.logger.EXPECT().Info("containers imported successfully").Times(1)
 
-	tx := &gorm.DB{}
-	s.mockRepo.EXPECT().BeginTransaction(s.ctx).Return(tx, nil)
-	mockTxRepo := repositories.NewMockIContainerRepository(s.ctrl)
-	s.mockRepo.EXPECT().WithTransaction(tx).Return(mockTxRepo)
-
-	mockTxRepo.EXPECT().FindById("test").Return(nil, gorm.ErrRecordNotFound)
-	mockTxRepo.EXPECT().FindByName("container").Return(nil, gorm.ErrRecordNotFound)
-	mockTxRepo.EXPECT().Create("test", "container", entities.ContainerStatus("ON"), "127.0.0.1").Return(container, nil)
-
-	resp, err := s.containerSvc.Import(s.ctx, file)
+	resp, err := s.containerService.Import(s.ctx, file)
 	s.NoError(err)
 	s.Equal(1, resp.SuccessCount)
 	s.Equal(0, resp.FailedCount)
 	s.Contains(resp.SuccessContainers, "test")
 }
 
-func (s *ContainerServiceSuite) TestImportDuplicateId() {
-	s.logger.EXPECT().Info("containers imported successfully").Times(1)
-
-	f := excelize.NewFile()
-	sheet := f.GetSheetName(0)
-	f.SetCellValue(sheet, "A1", "Container ID")
-	f.SetCellValue(sheet, "B1", "Container Name")
-	f.SetCellValue(sheet, "C1", "Status")
-	f.SetCellValue(sheet, "D1", "IPv4")
-
-	f.SetCellValue(sheet, "A2", "test")
-	f.SetCellValue(sheet, "B2", "container")
-	f.SetCellValue(sheet, "C2", "ON")
-	f.SetCellValue(sheet, "D2", "127.0.0.1")
-
-	var buf bytes.Buffer
-	err := f.Write(&buf)
-	s.Require().NoError(err)
-
-	reader := bytes.NewReader(buf.Bytes())
-	file := struct {
-		io.Reader
-		io.ReaderAt
-		io.Seeker
-		io.Closer
-	}{
-		Reader:   reader,
-		ReaderAt: reader,
-		Seeker:   reader,
-		Closer:   io.NopCloser(nil),
-	}
-
-	tx := &gorm.DB{}
-	s.mockRepo.EXPECT().BeginTransaction(s.ctx).Return(tx, nil)
-	mockTxRepo := repositories.NewMockIContainerRepository(s.ctrl)
-	s.mockRepo.EXPECT().WithTransaction(tx).Return(mockTxRepo)
-
-	mockTxRepo.EXPECT().FindById("test").Return(nil, errors.New("duplicate id"))
-
-	resp, err := s.containerSvc.Import(s.ctx, file)
-	s.NoError(err)
-	s.Equal(1, resp.SuccessCount)
-	s.Equal(0, resp.FailedCount)
-	s.Contains(resp.FailedContainers, "test")
-}
-
-func (s *ContainerServiceSuite) TestImportDuplicateName() {
-	s.logger.EXPECT().Info("containers imported successfully").Times(1)
-
-	f := excelize.NewFile()
-	sheet := f.GetSheetName(0)
-	f.SetCellValue(sheet, "A1", "Container ID")
-	f.SetCellValue(sheet, "B1", "Container Name")
-	f.SetCellValue(sheet, "C1", "Status")
-	f.SetCellValue(sheet, "D1", "IPv4")
-
-	f.SetCellValue(sheet, "A2", "test")
-	f.SetCellValue(sheet, "B2", "container")
-	f.SetCellValue(sheet, "C2", "ON")
-	f.SetCellValue(sheet, "D2", "127.0.0.1")
-
-	var buf bytes.Buffer
-	err := f.Write(&buf)
-	s.Require().NoError(err)
-
-	reader := bytes.NewReader(buf.Bytes())
-	file := struct {
-		io.Reader
-		io.ReaderAt
-		io.Seeker
-		io.Closer
-	}{
-		Reader:   reader,
-		ReaderAt: reader,
-		Seeker:   reader,
-		Closer:   io.NopCloser(nil),
-	}
-
-	tx := &gorm.DB{}
-	s.mockRepo.EXPECT().BeginTransaction(s.ctx).Return(tx, nil)
-	mockTxRepo := repositories.NewMockIContainerRepository(s.ctrl)
-	s.mockRepo.EXPECT().WithTransaction(tx).Return(mockTxRepo)
-
-	mockTxRepo.EXPECT().FindById("test").Return(nil, gorm.ErrRecordNotFound)
-	mockTxRepo.EXPECT().FindByName("container").Return(nil, errors.New("duplicate name"))
-
-	resp, err := s.containerSvc.Import(s.ctx, file)
-	s.NoError(err)
-	s.Equal(0, resp.SuccessCount)
-	s.Equal(1, resp.FailedCount)
-	s.Contains(resp.FailedContainers, "test")
-}
-
 func (s *ContainerServiceSuite) TestImportCannotCreate() {
-	s.logger.EXPECT().Info("containers imported successfully").Times(1)
-
 	f := excelize.NewFile()
 	sheet := f.GetSheetName(0)
 	f.SetCellValue(sheet, "A1", "Container ID")
@@ -521,19 +416,51 @@ func (s *ContainerServiceSuite) TestImportCannotCreate() {
 		Seeker:   reader,
 		Closer:   io.NopCloser(nil),
 	}
+	s.mockRepo.EXPECT().Create("test", "container", entities.ContainerOn, "127.0.0.1").Return(nil, errors.New("create error"))
+	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
+	s.logger.EXPECT().Info("containers imported successfully").Times(1)
 
-	tx := &gorm.DB{}
-	s.mockRepo.EXPECT().BeginTransaction(s.ctx).Return(tx, nil)
-	mockTxRepo := repositories.NewMockIContainerRepository(s.ctrl)
-	s.mockRepo.EXPECT().WithTransaction(tx).Return(mockTxRepo)
-
-	mockTxRepo.EXPECT().FindById("test").Return(nil, gorm.ErrRecordNotFound)
-	mockTxRepo.EXPECT().FindByName("container").Return(nil, gorm.ErrRecordNotFound)
-	mockTxRepo.EXPECT().Create("test", "container", entities.ContainerStatus("ON"), "127.0.0.1").Return(nil, errors.New("create error"))
-
-	resp, err := s.containerSvc.Import(s.ctx, file)
+	resp, err := s.containerService.Import(s.ctx, file)
 	s.NoError(err)
 	s.Equal(0, resp.SuccessCount)
 	s.Equal(1, resp.FailedCount)
 	s.Contains(resp.FailedContainers, "test")
+}
+
+func (s *ContainerServiceSuite) TestImportInvalidContainerField() {
+	f := excelize.NewFile()
+	sheet := f.GetSheetName(0)
+	f.SetCellValue(sheet, "A1", "Container ID")
+	f.SetCellValue(sheet, "B1", "Container Name")
+	f.SetCellValue(sheet, "C1", "Status")
+	f.SetCellValue(sheet, "D1", "IPv4")
+
+	f.SetCellValue(sheet, "A2", "")
+	f.SetCellValue(sheet, "B2", "container")
+	f.SetCellValue(sheet, "C2", "ON")
+	f.SetCellValue(sheet, "D2", "127.0.0.1")
+
+	var buf bytes.Buffer
+	err := f.Write(&buf)
+	s.Require().NoError(err)
+
+	reader := bytes.NewReader(buf.Bytes())
+	file := struct {
+		io.Reader
+		io.ReaderAt
+		io.Seeker
+		io.Closer
+	}{
+		Reader:   reader,
+		ReaderAt: reader,
+		Seeker:   reader,
+		Closer:   io.NopCloser(nil),
+	}
+	s.logger.EXPECT().Info("containers imported successfully").Times(1)
+
+	resp, err := s.containerService.Import(s.ctx, file)
+	s.NoError(err)
+	s.Equal(0, resp.SuccessCount)
+	s.Equal(1, resp.FailedCount)
+	s.Contains(resp.FailedContainers, "")
 }

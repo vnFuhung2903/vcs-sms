@@ -166,9 +166,12 @@ func (suite *ContainerRepoSuite) TestUpdate() {
 	assert.Equal(suite.T(), "Zeta", found.ContainerName)
 }
 
-func (suite *ContainerRepoSuite) TestUpdateNonExistent() {
+func (suite *ContainerRepoSuite) TestUpdateAndDeleteNonExistent() {
 	update := dto.ContainerUpdate{Status: entities.ContainerOn}
 	err := suite.repo.Update("not-exist", update)
+	assert.NoError(suite.T(), err)
+
+	err = suite.repo.Delete("not-exist")
 	assert.NoError(suite.T(), err)
 }
 
@@ -184,11 +187,6 @@ func (suite *ContainerRepoSuite) TestDelete() {
 	assert.NoError(suite.T(), err)
 	_, err = suite.repo.FindById("cid-9")
 	assert.Error(suite.T(), err)
-}
-
-func (suite *ContainerRepoSuite) TestDeleteNonExistent() {
-	err := suite.repo.Delete("not-exist-id")
-	assert.NoError(suite.T(), err)
 }
 
 func (suite *ContainerRepoSuite) TestBeginAndWithTransaction() {

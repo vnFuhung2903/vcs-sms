@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"net/mail"
 
 	"github.com/vnFuhung2903/vcs-sms/entities"
@@ -10,7 +9,6 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/utils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type IUserService interface {
@@ -35,15 +33,6 @@ func NewUserService(userRepo repositories.IUserRepository, logger logger.ILogger
 }
 
 func (s *userService) Register(username, password, email string, role entities.UserRole, scopes int64) (*entities.User, error) {
-	existing, err := s.userRepo.FindByName(username)
-	if existing != nil || (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) {
-		if err == nil {
-			err = errors.New("username already taken")
-		}
-		s.logger.Error("failed to register user", zap.Error(err))
-		return nil, err
-	}
-
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		s.logger.Error("failed to hash password", zap.Error(err))

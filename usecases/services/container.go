@@ -15,7 +15,6 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 type IContainerService interface {
@@ -103,7 +102,7 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*dt
 	sheetName := f.GetSheetName(0)
 	rows, err := f.GetRows(sheetName)
 	if err != nil {
-		s.logger.Error("failed to read rows", zap.Error(err))
+		s.logger.Error("failed to import containers", zap.String("sheetName", sheetName), zap.Error(err))
 		return nil, err
 	}
 
@@ -128,7 +127,8 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*dt
 			continue
 		}
 
-		if err := s._importContainer(ctx, containerId, containerName, entities.ContainerStatus(status), ipv4); err != nil {
+		_, err := s.Create(ctx, containerId, containerName, entities.ContainerStatus(status), ipv4)
+		if err != nil {
 			result.FailedCount++
 			result.FailedContainers = append(result.FailedContainers, containerId)
 			continue
@@ -150,7 +150,6 @@ func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilte
 
 	containers, _, err := s.containerRepo.View(filter, from, limit, dto.StandardizeSort(sort))
 	if err != nil {
-		s.logger.Error("failed to export containers", zap.Error(err))
 		return nil, err
 	}
 
@@ -180,50 +179,4 @@ func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilte
 	}
 	s.logger.Info("containers exported successfully")
 	return buf.Bytes(), nil
-}
-
-func (s *ContainerService) _importContainer(ctx context.Context, containerId string, containerName string, status entities.ContainerStatus, ipv4 string) error {
-	tx, err := s.containerRepo.BeginTransaction(ctx)
-	if err != nil {
-		s.logger.Error("failed to begin transaction", zap.Error(err))
-		return err
-	}
-	commited := false
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-		if !commited {
-			tx.Rollback()
-		}
-	}()
-	containerRepo := s.containerRepo.WithTransaction(tx)
-
-	existed, err := containerRepo.FindById(containerId)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-	if existed == nil {
-		existed, err = containerRepo.FindByName(containerName)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-	}
-
-	if existed == nil {
-		if status != entities.ContainerOn && status != entities.ContainerOff {
-			err := fmt.Errorf("invalid status: %s", status)
-			return err
-		}
-		_, err = containerRepo.Create(containerId, containerName, entities.ContainerStatus(status), ipv4)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return err
-	}
-	commited = true
-	return nil
 }

@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/dto"
-	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/pkg/middlewares"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
 )
@@ -57,13 +56,7 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 	}
 
 	var ids []string
-	onCount, offCount := 0, 0
 	for _, container := range data {
-		if container.Status == entities.ContainerOn {
-			onCount++
-		} else {
-			offCount++
-		}
 		ids = append(ids, container.ContainerId)
 	}
 
@@ -75,29 +68,22 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	totalUptime := 0.0
-	for _, id := range ids {
-		uptime := h.healthcheckService.CalculateUptimePercentage(results[id], req.StartTime, req.EndTime)
-		totalUptime += uptime
-	}
-
-	response := dto.ReportResponse{
-		ContainerCount:    int(total),
-		ContainerOnCount:  onCount,
-		ContainerOffCount: offCount,
-		TotalUptime:       totalUptime,
-		StartTime:         req.StartTime,
-		EndTime:           req.EndTime,
-	}
-
-	if err := h.reportService.SendEmail(c.Request.Context(), &response, req.Email, req.StartTime, req.EndTime); err != nil {
+	onCount, offCount, totalUptime, err := h.reportService.CalculateReportStatistic(data, results, req.StartTime, req.EndTime)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, response)
+	if err := h.reportService.SendEmail(c.Request.Context(), req.Email, int(total), onCount, offCount, totalUptime, req.StartTime, req.EndTime); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.Status(http.StatusOK)
 }
 
 func (h *ReportHandler) Update(c *gin.Context) {

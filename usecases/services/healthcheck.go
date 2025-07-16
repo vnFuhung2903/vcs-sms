@@ -10,7 +10,6 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/vnFuhung2903/vcs-sms/dto"
-	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/pkg/docker"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
@@ -19,7 +18,6 @@ import (
 
 type IHealthcheckService interface {
 	UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate) error
-	CalculateUptimePercentage(statusList []dto.EsStatus, startTime time.Time, endTime time.Time) float64
 	GetEsStatus(ctx context.Context, ids []string, limit int, startTime time.Time, endTime time.Time) (map[string][]dto.EsStatus, error)
 }
 
@@ -141,22 +139,6 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 	defer res.Body.Close()
 	s.logger.Info("elasticsearch bulk indexed successfully")
 	return nil
-}
-
-func (s *HealthcheckService) CalculateUptimePercentage(statusList []dto.EsStatus, startTime time.Time, endTime time.Time) float64 {
-	result := 0.0
-	if endTime.After(time.Now()) {
-		endTime = time.Now()
-	}
-	prevTime := endTime
-	for _, status := range statusList {
-		if status.Status == entities.ContainerOn {
-			result += prevTime.Sub(status.LastUpdated).Hours()
-		} else {
-			prevTime = status.LastUpdated
-		}
-	}
-	return result
 }
 
 func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limit int, startTime time.Time, endTime time.Time) (map[string][]dto.EsStatus, error) {

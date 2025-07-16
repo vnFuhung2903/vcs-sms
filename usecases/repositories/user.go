@@ -89,7 +89,7 @@ func (r *userRepository) UpdateScope(user *entities.User, scopes int64) error {
 }
 
 func (r *userRepository) Delete(userId string) error {
-	res := r.db.Delete(&entities.User{ID: userId})
+	res := r.db.Where("id = ?", userId).Delete(&entities.User{})
 	return res.Error
 }
 
