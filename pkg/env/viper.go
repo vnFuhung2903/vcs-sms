@@ -1,6 +1,10 @@
 package env
 
-import "github.com/spf13/viper"
+import (
+	"errors"
+
+	"github.com/spf13/viper"
+)
 
 type AuthEnv struct {
 	JWTSecret string `mapstructure:"JWT_SECRET_KEY"`
@@ -37,6 +41,16 @@ func LoadEnv(path string) (*Env, error) {
 	v.AddConfigPath(path)
 	v.SetConfigName(".env")
 	v.SetConfigType("env")
+
+	v.SetDefault("ZAP_LEVEL", "info")
+	v.SetDefault("ZAP_FILEPATH", "./logs/app.log")
+	v.SetDefault("ZAP_MAXSIZE", 100)
+	v.SetDefault("ZAP_MAXAGE", 10)
+	v.SetDefault("ZAP_MAXBACKUPS", 30)
+	v.SetDefault("POSTGRES_USER", "postgres")
+	v.SetDefault("POSTGRES_PASSWORD", "postgres")
+	v.SetDefault("POSTGRES_NAME", "postgres")
+
 	v.AutomaticEnv()
 
 	if err := v.ReadInConfig(); err != nil {
@@ -48,16 +62,19 @@ func LoadEnv(path string) (*Env, error) {
 	var loggerEnv LoggerEnv
 	var postgresEnv PostgresEnv
 
-	if err := v.Unmarshal(&authEnv); err != nil {
+	if err := v.Unmarshal(&authEnv); err != nil || authEnv.JWTSecret == "" {
+		err = errors.New("auth environment variables are empty")
 		return nil, err
 	}
-	if err := v.Unmarshal(&gomailEnv); err != nil {
+	if err := v.Unmarshal(&gomailEnv); err != nil || gomailEnv.MailUsername == "" || gomailEnv.MailPassword == "" {
+		err = errors.New("gomail environment variables are empty")
 		return nil, err
 	}
 	if err := v.Unmarshal(&loggerEnv); err != nil {
 		return nil, err
 	}
-	if err := v.Unmarshal(&postgresEnv); err != nil {
+	if err := v.Unmarshal(&postgresEnv); err != nil || postgresEnv.PostgresUser == "" || postgresEnv.PostgresName == "" {
+		err = errors.New("posgres environment variables are empty")
 		return nil, err
 	}
 	return &Env{
