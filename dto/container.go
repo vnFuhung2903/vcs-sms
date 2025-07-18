@@ -5,10 +5,8 @@ import (
 )
 
 type CreateRequest struct {
-	ContainerId   string                   `json:"container_id"`
-	ContainerName string                   `json:"container_name"`
-	Status        entities.ContainerStatus `json:"status"`
-	IPv4          string                   `json:"ipv4"`
+	ContainerName string `json:"container_name"`
+	ImageName     string `json:"image_name"`
 }
 
 type ViewResponse struct {

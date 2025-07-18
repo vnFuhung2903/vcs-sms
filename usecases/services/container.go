@@ -11,6 +11,7 @@ import (
 
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
+	"github.com/vnFuhung2903/vcs-sms/pkg/docker"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
 	"github.com/xuri/excelize/v2"
@@ -18,7 +19,7 @@ import (
 )
 
 type IContainerService interface {
-	Create(ctx context.Context, containerId string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error)
+	Create(ctx context.Context, containerName string, imageName string) (*entities.Container, error)
 	View(ctx context.Context, containerFilter dto.ContainerFilter, from int, to int, sort dto.ContainerSort) ([]*entities.Container, int64, error)
 	Update(ctx context.Context, containerId string, updateData dto.ContainerUpdate) error
 	Import(ctx context.Context, file multipart.File) (*dto.ImportResponse, error)
@@ -28,30 +29,49 @@ type IContainerService interface {
 
 type ContainerService struct {
 	containerRepo repositories.IContainerRepository
+	dockerClient  docker.IDockerClient
 	logger        logger.ILogger
 }
 
-func NewContainerService(repo repositories.IContainerRepository, logger logger.ILogger) IContainerService {
+func NewContainerService(repo repositories.IContainerRepository, dockerClient docker.IDockerClient, logger logger.ILogger) IContainerService {
 	return &ContainerService{
 		containerRepo: repo,
+		dockerClient:  dockerClient,
 		logger:        logger,
 	}
 }
 
-func (s *ContainerService) Create(ctx context.Context, containerId string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error) {
-	if status != entities.ContainerOn && status != entities.ContainerOff {
-		err := fmt.Errorf("invalid status: %s", status)
-		s.logger.Error("failed to create container", zap.Error(err))
-		return nil, err
-	}
-
-	container, err := s.containerRepo.Create(containerId, containerName, status, ipv4)
+func (s *ContainerService) Create(ctx context.Context, containerName string, imageName string) (*entities.Container, error) {
+	con, err := s.dockerClient.Create(ctx, containerName, imageName)
 	if err != nil {
 		s.logger.Error("failed to create container", zap.Error(err))
 		return nil, err
 	}
 
-	s.logger.Info("container created successfully", zap.String("containerId", containerId))
+	if err := s.dockerClient.Start(ctx, con.ID); err != nil {
+		s.logger.Error("failed to start container", zap.Error(err))
+		return nil, err
+	}
+
+	status, err := s.dockerClient.GetStatus(ctx, con.ID)
+	if err != nil {
+		s.logger.Error("failed to inspect container", zap.Error(err))
+		return nil, err
+	}
+
+	ipv4, err := s.dockerClient.GetIpv4(ctx, con.ID)
+	if err != nil {
+		s.logger.Error("failed to inspect container", zap.Error(err))
+		return nil, err
+	}
+
+	container, err := s.containerRepo.Create(con.ID, containerName, status, ipv4)
+	if err != nil {
+		s.logger.Error("failed to create container", zap.Error(err))
+		return nil, err
+	}
+
+	s.logger.Info("container created successfully", zap.String("containerId", con.ID))
 	return container, nil
 }
 
@@ -81,6 +101,22 @@ func (s *ContainerService) View(ctx context.Context, filter dto.ContainerFilter,
 }
 
 func (s *ContainerService) Update(ctx context.Context, containerId string, updateData dto.ContainerUpdate) error {
+	if updateData.Status != entities.ContainerOn && updateData.Status != entities.ContainerOff {
+		return fmt.Errorf("invalid status: %s", updateData.Status)
+	}
+
+	if updateData.Status == entities.ContainerOn {
+		if err := s.dockerClient.Start(ctx, containerId); err != nil {
+			s.logger.Error("failed to start container", zap.Error(err))
+			return err
+		}
+	} else {
+		if err := s.dockerClient.Stop(ctx, containerId); err != nil {
+			s.logger.Error("failed to stop container", zap.Error(err))
+			return err
+		}
+	}
+
 	if err := s.containerRepo.Update(containerId, updateData); err != nil {
 		s.logger.Error("failed to update container", zap.Error(err))
 		return err
@@ -90,6 +126,16 @@ func (s *ContainerService) Update(ctx context.Context, containerId string, updat
 }
 
 func (s *ContainerService) Delete(ctx context.Context, containerId string) error {
+	if err := s.dockerClient.Stop(ctx, containerId); err != nil {
+		s.logger.Error("failed to start container", zap.Error(err))
+		return err
+	}
+
+	if err := s.dockerClient.Delete(ctx, containerId); err != nil {
+		s.logger.Error("failed to start container", zap.Error(err))
+		return err
+	}
+
 	if err := s.containerRepo.Delete(containerId); err != nil {
 		s.logger.Error("failed to delete container", zap.Error(err))
 		return err
@@ -118,30 +164,28 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*dt
 		if i == 0 {
 			continue
 		}
-		if len(row) < 4 {
+		if len(row) < 2 {
 			s.logger.Warn("skipping invalid row", zap.Int("row", i+1))
 			continue
 		}
 
-		containerId := strings.TrimSpace(row[0])
-		containerName := strings.TrimSpace(row[1])
-		status := strings.TrimSpace(row[2])
-		ipv4 := strings.TrimSpace(row[3])
+		containerName := strings.TrimSpace(row[0])
+		imageName := strings.TrimSpace(row[1])
 
-		if containerId == "" || containerName == "" || ipv4 == "" {
+		if containerName == "" || imageName == "" {
 			result.FailedCount++
-			result.FailedContainers = append(result.FailedContainers, containerId)
+			result.FailedContainers = append(result.FailedContainers, containerName)
 			continue
 		}
 
-		_, err := s.Create(ctx, containerId, containerName, entities.ContainerStatus(status), ipv4)
+		_, err := s.Create(ctx, containerName, imageName)
 		if err != nil {
 			result.FailedCount++
-			result.FailedContainers = append(result.FailedContainers, containerId)
+			result.FailedContainers = append(result.FailedContainers, containerName)
 			continue
 		}
 		result.SuccessCount++
-		result.SuccessContainers = append(result.SuccessContainers, containerId)
+		result.SuccessContainers = append(result.SuccessContainers, containerName)
 	}
 	s.logger.Info("containers imported successfully")
 	return result, nil

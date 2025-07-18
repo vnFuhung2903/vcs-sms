@@ -24,7 +24,6 @@ func (h *ReportHandler) SetupRoutes(r *gin.Engine) {
 	reportRoutes := r.Group("/report", h.jwtMiddleware.RequireScope("report:mail"))
 	{
 		reportRoutes.GET("/mail", h.SendEmail)
-		reportRoutes.POST("/update", h.Update)
 	}
 }
 
@@ -83,31 +82,5 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
-}
-
-func (h *ReportHandler) Update(c *gin.Context) {
-	data, _, err := h.containerService.View(c.Request.Context(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
-		})
-		return
-	}
-
-	var statusList []dto.EsStatusUpdate
-	for _, container := range data {
-		statusList = append(statusList, dto.EsStatusUpdate{
-			ContainerId: container.ContainerId,
-			Status:      container.Status,
-		})
-	}
-
-	if err := h.healthcheckService.UpdateStatus(c.Request.Context(), statusList); err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
-		})
-		return
-	}
 	c.Status(http.StatusOK)
 }

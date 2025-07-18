@@ -244,9 +244,9 @@ func TestEmailReport(t *testing.T) {
 	defer resp.Body.Close()
 }
 
-func TestUpdateReport(t *testing.T) {
-	resp, err := makeRequest("POST", "/report/update", nil, true, "")
-	printResponse("Update Report", resp, err)
+func TestHealthcheckUpdate(t *testing.T) {
+	resp, err := makeRequest("POST", "/healthcheck/update", nil, true, "")
+	printResponse("HealthCheck", resp, err)
 	defer resp.Body.Close()
 }
 
@@ -321,8 +321,8 @@ func TestMain(t *testing.T) {
 		TestExportContainers(t)
 	})
 
-	// t.Run("UpdateReport", func(t *testing.T) {
-	// 	TestUpdateReport(t)
+	// t.Run("HealthcheckUpdate", func(t *testing.T) {
+	// 	TestHealthcheckUpdate(t)
 	// })
 
 	t.Run("EmailReport", func(t *testing.T) {

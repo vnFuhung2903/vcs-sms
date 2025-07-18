@@ -67,7 +67,7 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 		return
 	}
 
-	_, err := h.containerService.Create(c.Request.Context(), req.ContainerId, req.ContainerName, req.Status, req.IPv4)
+	_, err := h.containerService.Create(c.Request.Context(), req.ContainerName, req.ImageName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
