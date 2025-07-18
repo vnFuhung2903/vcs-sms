@@ -15,6 +15,7 @@ import (
 
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
+	"github.com/vnFuhung2903/vcs-sms/mocks/docker"
 	"github.com/vnFuhung2903/vcs-sms/mocks/logger"
 	"github.com/vnFuhung2903/vcs-sms/mocks/repositories"
 )
@@ -24,6 +25,7 @@ type ContainerServiceSuite struct {
 	ctrl             *gomock.Controller
 	containerService IContainerService
 	mockRepo         *repositories.MockIContainerRepository
+	dockerClient     *docker.MockIDockerClient
 	logger           *logger.MockILogger
 	ctx              context.Context
 }
@@ -32,7 +34,7 @@ func (s *ContainerServiceSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockRepo = repositories.NewMockIContainerRepository(s.ctrl)
 	s.logger = logger.NewMockILogger(s.ctrl)
-	s.containerService = NewContainerService(s.mockRepo, s.logger)
+	s.containerService = NewContainerService(s.mockRepo, s.dockerClient, s.logger)
 	s.ctx = context.Background()
 }
 
@@ -45,35 +47,20 @@ func TestContainerServiceSuite(t *testing.T) {
 }
 
 func (s *ContainerServiceSuite) TestCreate() {
-	expected := &entities.Container{
-		ContainerId:   "test",
-		ContainerName: "container",
-		Status:        entities.ContainerOn,
-		Ipv4:          "127.0.0.1",
-	}
-	s.mockRepo.EXPECT().Create("test", "container", entities.ContainerStatus("ON"), "127.0.0.1").Return(expected, nil)
-	s.logger.EXPECT().Info("container created successfully", zap.String("containerId", expected.ContainerId)).Times(1)
+	s.mockRepo.EXPECT().Create("test", "container", gomock.Any(), gomock.Any()).Return(gomock.Any(), nil)
+	s.logger.EXPECT().Info("container created successfully", gomock.Any()).Times(1)
 
-	result, err := s.containerService.Create(s.ctx, "test", "container", entities.ContainerStatus("ON"), "127.0.0.1")
+	result, err := s.containerService.Create(s.ctx, "container", "testcontainers/ryuk:0.12.0")
 	s.NoError(err)
-	s.Equal(expected, result)
+	s.Equal("container", result.ContainerName)
 }
 
 func (s *ContainerServiceSuite) TestCreateError() {
 	s.mockRepo.EXPECT().Create("test", "container", entities.ContainerStatus("ON"), "127.0.0.1").Return(nil, errors.New("db error"))
 	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
 
-	result, err := s.containerService.Create(s.ctx, "test", "container", entities.ContainerStatus("ON"), "127.0.0.1")
+	result, err := s.containerService.Create(s.ctx, "container", "testcontainers/ryuk:0.12.0")
 	s.ErrorContains(err, "db error")
-	s.Nil(result)
-}
-
-func (s *ContainerServiceSuite) TestCreateWithInvalidStatus() {
-	invalidStatus := entities.ContainerStatus("INVALID")
-	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
-
-	result, err := s.containerService.Create(s.ctx, "test123", "test-container", invalidStatus, "192.168.1.1")
-	s.Error(err)
 	s.Nil(result)
 }
 
