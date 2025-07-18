@@ -2,21 +2,20 @@ package docker
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
-	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 )
 
 type IDockerClient interface {
-	Create(ctx context.Context, name string, imageName string, refStr string) (*entities.Container, error)
-	HealthCheck(ctx context.Context, id string) error
+	Create(ctx context.Context, name string, imageName string) (*container.CreateResponse, error)
+	Start(ctx context.Context, containerID string) error
+	GetStatus(ctx context.Context, containerID string) (entities.ContainerStatus, error)
+	GetIpv4(ctx context.Context, containerID string) (string, error)
+	Stop(ctx context.Context, containerID string) error
 	Delete(ctx context.Context, containerID string) error
 }
 
@@ -34,36 +33,25 @@ func NewDockerClient() (IDockerClient, error) {
 	}, nil
 }
 
-func (c *DockerClient) Create(ctx context.Context, name string, imageName string, refStr string) (*entities.Container, error) {
-	if err := c.PullImage(ctx, refStr); err != nil {
+func (c *DockerClient) Create(ctx context.Context, name string, imageName string) (*container.CreateResponse, error) {
+	if err := c.PullImage(ctx, imageName); err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
 	con, err := c.client.ContainerCreate(ctx, &container.Config{
 		Image: imageName,
-		Healthcheck: &container.HealthConfig{
-			Test:     []string{"CMD-SHELL", "curl -f http://localhost/ || exit 1"},
-			Interval: 10 * time.Second,
-			Timeout:  2 * time.Second,
-			Retries:  3,
-		},
-	}, &container.HostConfig{}, &network.NetworkingConfig{}, nil, name)
+	}, nil, nil, nil, name)
+	return &con, err
+}
+
+func (c *DockerClient) Start(ctx context.Context, containerId string) error {
+	return c.client.ContainerStart(ctx, containerId, container.StartOptions{})
+}
+
+func (c *DockerClient) GetStatus(ctx context.Context, containerId string) (entities.ContainerStatus, error) {
+	inspect, err := c.client.ContainerInspect(ctx, containerId)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := c.client.ContainerStart(ctx, con.ID, container.StartOptions{}); err != nil {
-		return nil, err
-	}
-
-	inspect, err := c.client.ContainerInspect(ctx, con.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	networkSettings, ok := inspect.NetworkSettings.Networks["bridge"]
-	if !ok {
-		return nil, errors.New("cannot inspect container's address")
+		return entities.ContainerOff, err
 	}
 
 	var status string
@@ -72,36 +60,25 @@ func (c *DockerClient) Create(ctx context.Context, name string, imageName string
 	} else {
 		status = "OFF"
 	}
-
-	return &entities.Container{
-		ContainerId:   con.ID,
-		ContainerName: name,
-		Ipv4:          networkSettings.IPAddress,
-		Status:        entities.ContainerStatus(status),
-	}, nil
+	return entities.ContainerStatus(status), nil
 }
 
-func (c *DockerClient) HealthCheck(ctx context.Context, id string) error {
-	inspect, err := c.client.ContainerInspect(ctx, id)
+func (c *DockerClient) GetIpv4(ctx context.Context, containerId string) (string, error) {
+	inspect, err := c.client.ContainerInspect(ctx, containerId)
 	if err != nil {
-		return err
+		return "", err
 	}
-	networkInfo, ok := inspect.NetworkSettings.Networks["bridge"]
-	if !ok {
-		return errors.New("cannot find bridge network")
-	}
-	containerIP := networkInfo.IPAddress
-	url := fmt.Sprintf("http://%s/", containerIP)
-	resp, err := http.Get(url)
-	if err != nil {
-		return fmt.Errorf("API call failed: %w", err)
-	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("healthcheck API returned status %d", resp.StatusCode)
+	for _, network := range inspect.NetworkSettings.Networks {
+		if network.IPAddress != "" {
+			return network.IPAddress, nil
+		}
 	}
-	return nil
+	return "", fmt.Errorf("no IP address found for container %s", containerId)
+}
+
+func (c *DockerClient) Stop(ctx context.Context, containerId string) error {
+	return c.client.ContainerStop(ctx, containerId, container.StopOptions{})
 }
 
 func (c *DockerClient) Delete(ctx context.Context, containerId string) error {
@@ -111,7 +88,7 @@ func (c *DockerClient) Delete(ctx context.Context, containerId string) error {
 }
 
 func (c *DockerClient) PullImage(ctx context.Context, refStr string) error {
-	resp, err := c.client.ImagePull(ctx, refStr, types.ImagePullOptions{})
+	resp, err := c.client.ImagePull(ctx, refStr, image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to pull image: %w", err)
 	}

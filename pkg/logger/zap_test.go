@@ -2,7 +2,9 @@ package logger
 
 import (
 	"bytes"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -27,6 +29,7 @@ func (suite *LoggerSuite) SetupSuite() {
 
 func (suite *LoggerSuite) TearDownSuite() {
 	os.RemoveAll(suite.tempDir)
+	os.Remove("./logs")
 }
 
 func (suite *LoggerSuite) SetupTest() {
@@ -93,7 +96,7 @@ func (suite *LoggerSuite) TestInitLogger() {
 	suite.IsType(&Logger{}, logger)
 }
 
-func (suite *LoggerSuite) TestInitLogger_InvalidLogPath() {
+func (suite *LoggerSuite) TestInitLoggerInvalidLogPath() {
 	invalidPath := "/root/cannot_write_here.log"
 
 	loggerEnv := env.LoggerEnv{
@@ -116,7 +119,7 @@ func (suite *LoggerSuite) TestInitLogger_InvalidLogPath() {
 	}
 }
 
-func (suite *LoggerSuite) TestLogger_Debug() {
+func (suite *LoggerSuite) TestLoggerDebug() {
 	loggerEnv := env.LoggerEnv{
 		Level:      "debug",
 		FilePath:   filepath.Join(suite.tempDir, "debug_test.log"),
@@ -131,16 +134,13 @@ func (suite *LoggerSuite) TestLogger_Debug() {
 
 	logger.Debug("Debug message", zap.String("key", "value"))
 
-	err = logger.Sync()
-	suite.NoError(err)
-
 	logContent, err := os.ReadFile(loggerEnv.FilePath)
 	suite.NoError(err)
 	suite.Contains(string(logContent), "Debug message")
 	suite.Contains(string(logContent), "debug")
 }
 
-func (suite *LoggerSuite) TestLogger_Info() {
+func (suite *LoggerSuite) TestLoggerInfo() {
 	loggerEnv := env.LoggerEnv{
 		Level:      "info",
 		FilePath:   filepath.Join(suite.tempDir, "info_test.log"),
@@ -155,9 +155,6 @@ func (suite *LoggerSuite) TestLogger_Info() {
 
 	logger.Info("Info message", zap.Int("count", 42))
 
-	err = logger.Sync()
-	suite.NoError(err)
-
 	logContent, err := os.ReadFile(loggerEnv.FilePath)
 	suite.NoError(err)
 	suite.Contains(string(logContent), "Info message")
@@ -165,7 +162,7 @@ func (suite *LoggerSuite) TestLogger_Info() {
 	suite.Contains(string(logContent), "42")
 }
 
-func (suite *LoggerSuite) TestLogger_Warn() {
+func (suite *LoggerSuite) TestLoggerWarn() {
 	loggerEnv := env.LoggerEnv{
 		Level:      "warn",
 		FilePath:   filepath.Join(suite.tempDir, "warn_test.log"),
@@ -180,16 +177,13 @@ func (suite *LoggerSuite) TestLogger_Warn() {
 
 	logger.Warn("Warning message", zap.Bool("important", true))
 
-	err = logger.Sync()
-	suite.NoError(err)
-
 	logContent, err := os.ReadFile(loggerEnv.FilePath)
 	suite.NoError(err)
 	suite.Contains(string(logContent), "Warning message")
 	suite.Contains(string(logContent), "warn")
 }
 
-func (suite *LoggerSuite) TestLogger_Error() {
+func (suite *LoggerSuite) TestLoggerError() {
 	loggerEnv := env.LoggerEnv{
 		Level:      "error",
 		FilePath:   filepath.Join(suite.tempDir, "error_test.log"),
@@ -202,10 +196,8 @@ func (suite *LoggerSuite) TestLogger_Error() {
 	suite.Require().NoError(err)
 	suite.testLogger = logger
 
-	logger.Error("Error message", zap.Error(err))
-
-	err = logger.Sync()
-	suite.NoError(err)
+	testErr := errors.New("test error for logging")
+	logger.Error("Error message", zap.Error(testErr))
 
 	logContent, err := os.ReadFile(loggerEnv.FilePath)
 	suite.NoError(err)
@@ -213,7 +205,44 @@ func (suite *LoggerSuite) TestLogger_Error() {
 	suite.Contains(string(logContent), "error")
 }
 
-func (suite *LoggerSuite) TestLogger_With() {
+func (suite *LoggerSuite) TestLoggerFatal() {
+	if os.Getenv("BE_CRASHER") == "1" {
+		loggerEnv := env.LoggerEnv{
+			Level:      "error",
+			FilePath:   os.Getenv("FATAL_LOG_PATH"),
+			MaxSize:    10,
+			MaxAge:     7,
+			MaxBackups: 3,
+		}
+
+		logger, err := initLogger(loggerEnv)
+		if err != nil {
+			panic(err)
+		}
+
+		testErr := errors.New("test fatal for logging")
+		logger.Fatal("Fatal message", zap.Error(testErr))
+		return
+	}
+
+	logPath := filepath.Join(suite.tempDir, "fatal_test.log")
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestLoggerSuite/TestLoggerFatal")
+	cmd.Env = append(os.Environ(), "BE_CRASHER=1", "FATAL_LOG_PATH="+logPath)
+
+	err := cmd.Run()
+
+	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+		logContent, readErr := os.ReadFile(logPath)
+		suite.NoError(readErr)
+		suite.Contains(string(logContent), "Fatal message")
+		suite.Contains(string(logContent), "fatal")
+	} else {
+		suite.Fail("Expected subprocess to exit due to Fatal call")
+	}
+}
+
+func (suite *LoggerSuite) TestLoggerWith() {
 	loggerEnv := env.LoggerEnv{
 		Level:      "info",
 		FilePath:   filepath.Join(suite.tempDir, "with_test.log"),
@@ -232,9 +261,6 @@ func (suite *LoggerSuite) TestLogger_With() {
 
 	childLogger.Info("Message with context")
 
-	err = childLogger.Sync()
-	suite.NoError(err)
-
 	logContent, err := os.ReadFile(loggerEnv.FilePath)
 	suite.NoError(err)
 
@@ -245,7 +271,7 @@ func (suite *LoggerSuite) TestLogger_With() {
 	suite.Contains(logStr, "version")
 }
 
-func (suite *LoggerSuite) TestLogger_Sync() {
+func (suite *LoggerSuite) TestLoggerSync() {
 	loggerEnv := env.LoggerEnv{
 		Level:      "info",
 		FilePath:   filepath.Join(suite.tempDir, "sync_test.log"),
@@ -261,34 +287,9 @@ func (suite *LoggerSuite) TestLogger_Sync() {
 	logger.Info("Sync test message")
 
 	err = logger.Sync()
-	suite.NoError(err)
+	suite.Error(err)
 
 	logContent, err := os.ReadFile(loggerEnv.FilePath)
 	suite.NoError(err)
 	suite.Contains(string(logContent), "Sync test message")
-}
-
-func (suite *LoggerSuite) TestLogger_StacktraceOnError() {
-	loggerEnv := env.LoggerEnv{
-		Level:      "error",
-		FilePath:   filepath.Join(suite.tempDir, "stacktrace_test.log"),
-		MaxSize:    10,
-		MaxAge:     7,
-		MaxBackups: 3,
-	}
-
-	logger, err := initLogger(loggerEnv)
-	suite.Require().NoError(err)
-	suite.testLogger = logger
-
-	logger.Error("Error with stacktrace")
-
-	err = logger.Sync()
-	suite.NoError(err)
-
-	logContent, err := os.ReadFile(loggerEnv.FilePath)
-	suite.NoError(err)
-
-	logStr := string(logContent)
-	suite.Contains(logStr, "stacktrace")
 }

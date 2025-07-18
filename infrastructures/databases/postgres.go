@@ -2,7 +2,6 @@ package databases
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/pkg/env"
@@ -10,15 +9,16 @@ import (
 	"gorm.io/gorm"
 )
 
-func ConnectPostgresDb(env env.PostgresEnv) *gorm.DB {
-	dsn := fmt.Sprintf("host=localhost user=%s password=%s dbname=%s port=5432 sslmode=disable", env.PostgresUser, env.PostgresPassword, env.PostgresName)
+func ConnectPostgresDb(env env.PostgresEnv) (*gorm.DB, error) {
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		env.PostgresHost, env.PostgresUser, env.PostgresPassword, env.PostgresName, env.PostgresPort)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Postgres connection error: %v", err)
+		return nil, err
 	}
 
 	if err := db.AutoMigrate(&entities.Container{}); err != nil {
-		log.Fatalf("Migrate error: %v", err)
+		return nil, err
 	}
-	return db
+	return db, nil
 }

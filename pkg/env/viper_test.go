@@ -28,7 +28,6 @@ func TestViperTestSuite(t *testing.T) {
 }
 
 func (suite *ViperTestSuite) SetupTest() {
-	// Clear environment variables before each test
 	envVars := []string{
 		"JWT_SECRET_KEY",
 		"MAIL_USERNAME",
@@ -56,13 +55,18 @@ func (suite *ViperTestSuite) createEnvFile(content string) string {
 }
 
 func (suite *ViperTestSuite) TestLoadEnv() {
-	// Create valid .env file
-	envContent := `JWT_SECRET_KEY=test_jwt_secret
+	envContent := `ELASTICSEARCH_ADDRESS=elasticsearch_address
+JWT_SECRET_KEY=test_jwt_secret
 MAIL_USERNAME=test@example.com
 MAIL_PASSWORD=test_password
+POSTGRES_HOST=postgres_host
 POSTGRES_USER=test_user
 POSTGRES_PASSWORD=test_db_password
 POSTGRES_NAME=test_db
+POSTGRES_PORT=5432
+REDIS_ADDRESS=redis_address
+REDIS_PASSWORD=redis_password
+REDIS_DB=0
 ZAP_LEVEL=info
 ZAP_FILEPATH=/tmp/app.log
 ZAP_MAXSIZE=100
@@ -74,14 +78,22 @@ ZAP_MAXBACKUPS=5`
 	suite.NoError(err)
 	suite.NotNil(env)
 
+	suite.Equal("elasticsearch_address", env.ElasticsearchEnv.ElasticsearchAddress)
+
 	suite.Equal("test_jwt_secret", env.AuthEnv.JWTSecret)
 
 	suite.Equal("test@example.com", env.GomailEnv.MailUsername)
 	suite.Equal("test_password", env.GomailEnv.MailPassword)
 
+	suite.Equal("postgres_host", env.PostgresEnv.PostgresHost)
 	suite.Equal("test_user", env.PostgresEnv.PostgresUser)
 	suite.Equal("test_db_password", env.PostgresEnv.PostgresPassword)
 	suite.Equal("test_db", env.PostgresEnv.PostgresName)
+	suite.Equal("5432", env.PostgresEnv.PostgresPort)
+
+	suite.Equal("redis_address", env.RedisEnv.RedisAddress)
+	suite.Equal("redis_password", env.RedisEnv.RedisPassword)
+	suite.Equal(0, env.RedisEnv.RedisDb)
 
 	suite.Equal("info", env.LoggerEnv.Level)
 	suite.Equal("/tmp/app.log", env.LoggerEnv.FilePath)
@@ -111,8 +123,6 @@ MAIL_PASSWORD=test_password`
 	suite.Equal(30, env.LoggerEnv.MaxBackups)
 
 	suite.Equal("partial_user", env.PostgresEnv.PostgresUser)
-	suite.Equal("postgres", env.PostgresEnv.PostgresPassword)
-	suite.Equal("postgres", env.PostgresEnv.PostgresName)
 }
 
 func (suite *ViperTestSuite) TestLoadEnvConfigFileNotFound() {
@@ -153,7 +163,7 @@ MAIL_PASSWORD=`
 	suite.Nil(env)
 }
 
-func (suite *ViperTestSuite) TestLoadEnvInvalidNumericValues() {
+func (suite *ViperTestSuite) TestLoadEnvInvalidLoggerValues() {
 	envContent := `JWT_SECRET_KEY=test_jwt_secret
 ZAP_MAXSIZE=invalid_number
 ZAP_MAXAGE=also_invalid
@@ -170,8 +180,37 @@ MAIL_PASSWORD=test_password`
 
 func (suite *ViperTestSuite) TestLoadEnvEmptyPostgresValues() {
 	envContent := `JWT_SECRET_KEY=test_jwt_secret
+POSTGRES_HOST=
 POSTGRES_USER=
 POSTGRES_NAME=
+POSTGRES_PORT=
+MAIL_USERNAME=test@example.com
+MAIL_PASSWORD=test_password`
+
+	suite.createEnvFile(envContent)
+	env, err := LoadEnv(suite.tempDir)
+
+	suite.Error(err)
+	suite.Nil(env)
+}
+
+func (suite *ViperTestSuite) TestLoadEnvInvalidRedisValues() {
+	envContent := `JWT_SECRET_KEY=test_jwt_secret
+REDIS_ADDRESS=
+REDIS_DB=not_a_number
+MAIL_USERNAME=test@example.com
+MAIL_PASSWORD=test_password`
+
+	suite.createEnvFile(envContent)
+	env, err := LoadEnv(suite.tempDir)
+
+	suite.Error(err)
+	suite.Nil(env)
+}
+
+func (suite *ViperTestSuite) TestLoadEnvEmptyElasticsearchValues() {
+	envContent := `JWT_SECRET_KEY=test_jwt_secret
+ELASTICSEARCH_ADDRESS=
 MAIL_USERNAME=test@example.com
 MAIL_PASSWORD=test_password`
 

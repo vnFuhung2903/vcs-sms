@@ -1,18 +1,26 @@
 package databases
 
 import (
-	"log"
-
 	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/vnFuhung2903/vcs-sms/pkg/env"
 )
 
-func ConnectESDb() *elasticsearch.Client {
+type IElasticsearchFactory interface {
+	ConnectElasticsearch() (*elasticsearch.Client, error)
+}
+
+type elasticsearchFactory struct {
+	Address string
+}
+
+func NewElasticsearchFactory(env env.ElasticsearchEnv) IElasticsearchFactory {
+	return &elasticsearchFactory{Address: env.ElasticsearchAddress}
+}
+
+func (f *elasticsearchFactory) ConnectElasticsearch() (*elasticsearch.Client, error) {
 	cfg := elasticsearch.Config{
-		Addresses: []string{"http://localhost:9200"},
+		Addresses: []string{f.Address},
 	}
 	es, err := elasticsearch.NewClient(cfg)
-	if err != nil {
-		log.Fatalf("Error creating Elasticsearch client: %s", err)
-	}
-	return es
+	return es, err
 }
