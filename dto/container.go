@@ -27,14 +27,14 @@ type ContainerUpdate struct {
 
 type ContainerFilter struct {
 	ContainerId   string                   `form:"container_id"`
-	Status        entities.ContainerStatus `form:"status"`
+	Status        entities.ContainerStatus `form:"status" binding:"omitempty,oneof=on off starting stopped error"`
 	ContainerName string                   `form:"container_name"`
 	Ipv4          string                   `form:"ipv4"`
 }
 
 type ContainerSort struct {
-	Field string    `form:"field"`
-	Sort  SortOrder `form:"order"`
+	Field string    `form:"field" binding:"omitempty,oneof=container_id container_name status ipv4 created_at updated_at"`
+	Order SortOrder `form:"order" binding:"omitempty,oneof=asc desc"`
 }
 
 var SortField = map[string]bool{

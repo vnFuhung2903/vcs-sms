@@ -86,7 +86,7 @@ func (suite *ContainerRepoSuite) TestViewWithFilters() {
 
 	// ContainerId filter
 	filter := dto.ContainerFilter{ContainerId: "cid-3"}
-	sort := dto.ContainerSort{Field: "container_id", Sort: "asc"}
+	sort := dto.ContainerSort{Field: "container_id", Order: "asc"}
 	result, total, err := suite.repo.View(filter, 1, 10, sort)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(1), total)
@@ -125,7 +125,7 @@ func (suite *ContainerRepoSuite) TestViewDefaultNoLimit() {
 	_, _ = suite.repo.Create("cid-6", "Stigma", entities.ContainerOff, "10.0.0.6")
 
 	filter := dto.ContainerFilter{}
-	sort := dto.ContainerSort{Field: "container_id", Sort: "asc"}
+	sort := dto.ContainerSort{Field: "container_id", Order: "asc"}
 	results, total, err := suite.repo.View(filter, 1, -1, sort)
 
 	assert.NoError(suite.T(), err)
@@ -134,9 +134,9 @@ func (suite *ContainerRepoSuite) TestViewDefaultNoLimit() {
 }
 
 func (suite *ContainerRepoSuite) TestViewWithInvalidSort() {
-	_, _, err := suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{Field: "not_a_field", Sort: "asc"})
+	_, _, err := suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{Field: "not_a_field", Order: "asc"})
 	assert.Error(suite.T(), err)
-	_, _, err = suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{Field: "container_id", Sort: "invalid_order"})
+	_, _, err = suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{Field: "container_id", Order: "invalid_order"})
 	assert.Error(suite.T(), err)
 	_, _, err = suite.repo.View(dto.ContainerFilter{}, 1, 10, dto.ContainerSort{})
 	assert.Error(suite.T(), err)
@@ -148,7 +148,7 @@ func (suite *ContainerRepoSuite) TestViewWhileDbClose() {
 	sqlDB.Close()
 
 	filter := dto.ContainerFilter{}
-	sort := dto.ContainerSort{Field: "container_id", Sort: "asc"}
+	sort := dto.ContainerSort{Field: "container_id", Order: "asc"}
 
 	_, _, err = suite.repo.View(filter, 1, 10, sort)
 

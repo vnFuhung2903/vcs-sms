@@ -1,28 +1,29 @@
 package middlewares
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/vnFuhung2903/vcs-sms/interfaces"
 	"github.com/vnFuhung2903/vcs-sms/pkg/env"
 )
 
 type IJWTMiddleware interface {
-	GenerateJWT(userId string, username string, scope []string) error
+	GenerateJWT(context context.Context, userId string, username string, scope []string) error
 	RequireScope(requiredScope string) gin.HandlerFunc
 }
 
 type jwtMiddleware struct {
-	redisClient *redis.Client
+	redisClient interfaces.IRedisClient
 	jwtSecret   []byte
 }
 
-func NewJWTMiddleware(redisClient *redis.Client, env env.AuthEnv) IJWTMiddleware {
+func NewJWTMiddleware(redisClient interfaces.IRedisClient, env env.AuthEnv) IJWTMiddleware {
 	return &jwtMiddleware{
 		redisClient: redisClient,
 		jwtSecret:   []byte(env.JWTSecret),
@@ -31,7 +32,7 @@ func NewJWTMiddleware(redisClient *redis.Client, env env.AuthEnv) IJWTMiddleware
 
 const jwtExpiry = time.Hour * 24 * 7
 
-func (m *jwtMiddleware) GenerateJWT(userId string, username string, scope []string) error {
+func (m *jwtMiddleware) GenerateJWT(ctx context.Context, userId string, username string, scope []string) error {
 	claims := jwt.MapClaims{
 		"sub":   userId,
 		"name":  username,
@@ -45,7 +46,7 @@ func (m *jwtMiddleware) GenerateJWT(userId string, username string, scope []stri
 		return err
 	}
 
-	if err := m.redisClient.Set("token", jwtToken, time.Hour*24*7).Err(); err != nil {
+	if err := m.redisClient.Set(ctx, "token", jwtToken, time.Hour*24*7); err != nil {
 		return err
 	}
 	return nil

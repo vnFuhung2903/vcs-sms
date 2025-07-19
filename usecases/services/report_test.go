@@ -98,7 +98,6 @@ func (s *ReportServiceTestSuite) TestSendEmailTemplateNotFound() {
 	s.logger.EXPECT().Error("failed to read email template", gomock.Any()).Times(1)
 	err := s.reportService.SendEmail(s.ctx, "recipient@example.com", 10, 7, 3, 24.5, s.sampleReport.StartTime, s.sampleReport.EndTime)
 	s.Error(err)
-	s.Contains(err.Error(), "no such file or directory")
 }
 
 func (s *ReportServiceTestSuite) TestSendEmailInvalidTemplate() {

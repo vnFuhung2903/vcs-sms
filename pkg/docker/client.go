@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -13,8 +14,8 @@ import (
 type IDockerClient interface {
 	Create(ctx context.Context, name string, imageName string) (*container.CreateResponse, error)
 	Start(ctx context.Context, containerID string) error
-	GetStatus(ctx context.Context, containerID string) (entities.ContainerStatus, error)
-	GetIpv4(ctx context.Context, containerID string) (string, error)
+	GetStatus(ctx context.Context, containerID string) entities.ContainerStatus
+	GetIpv4(ctx context.Context, containerID string) string
 	Stop(ctx context.Context, containerID string) error
 	Delete(ctx context.Context, containerID string) error
 }
@@ -48,33 +49,33 @@ func (c *DockerClient) Start(ctx context.Context, containerId string) error {
 	return c.client.ContainerStart(ctx, containerId, container.StartOptions{})
 }
 
-func (c *DockerClient) GetStatus(ctx context.Context, containerId string) (entities.ContainerStatus, error) {
+func (c *DockerClient) GetStatus(ctx context.Context, containerId string) entities.ContainerStatus {
 	inspect, err := c.client.ContainerInspect(ctx, containerId)
 	if err != nil {
-		return entities.ContainerOff, err
+		return entities.ContainerOff
 	}
 
-	var status string
+	var status entities.ContainerStatus
 	if inspect.State.Running {
-		status = "ON"
+		status = entities.ContainerOn
 	} else {
-		status = "OFF"
+		status = entities.ContainerOff
 	}
-	return entities.ContainerStatus(status), nil
+	return status
 }
 
-func (c *DockerClient) GetIpv4(ctx context.Context, containerId string) (string, error) {
+func (c *DockerClient) GetIpv4(ctx context.Context, containerId string) string {
 	inspect, err := c.client.ContainerInspect(ctx, containerId)
 	if err != nil {
-		return "", err
+		return ""
 	}
 
 	for _, network := range inspect.NetworkSettings.Networks {
 		if network.IPAddress != "" {
-			return network.IPAddress, nil
+			return network.IPAddress
 		}
 	}
-	return "", fmt.Errorf("no IP address found for container %s", containerId)
+	return ""
 }
 
 func (c *DockerClient) Stop(ctx context.Context, containerId string) error {
@@ -93,5 +94,6 @@ func (c *DockerClient) PullImage(ctx context.Context, refStr string) error {
 		return fmt.Errorf("failed to pull image: %w", err)
 	}
 	defer resp.Close()
-	return nil
+	_, err = io.Copy(io.Discard, resp)
+	return err
 }

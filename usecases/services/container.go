@@ -50,24 +50,18 @@ func (s *ContainerService) Create(ctx context.Context, containerName string, ima
 
 	if err := s.dockerClient.Start(ctx, con.ID); err != nil {
 		s.logger.Error("failed to start container", zap.Error(err))
-		return nil, err
 	}
 
-	status, err := s.dockerClient.GetStatus(ctx, con.ID)
-	if err != nil {
-		s.logger.Error("failed to inspect container", zap.Error(err))
-		return nil, err
-	}
-
-	ipv4, err := s.dockerClient.GetIpv4(ctx, con.ID)
-	if err != nil {
-		s.logger.Error("failed to inspect container", zap.Error(err))
-		return nil, err
-	}
+	status := s.dockerClient.GetStatus(ctx, con.ID)
+	ipv4 := s.dockerClient.GetIpv4(ctx, con.ID)
 
 	container, err := s.containerRepo.Create(con.ID, containerName, status, ipv4)
 	if err != nil {
 		s.logger.Error("failed to create container", zap.Error(err))
+		if err := s.dockerClient.Delete(ctx, con.ID); err != nil {
+			s.logger.Error("failed to delete container", zap.Error(err))
+			return nil, err
+		}
 		return nil, err
 	}
 
@@ -82,13 +76,6 @@ func (s *ContainerService) View(ctx context.Context, filter dto.ContainerFilter,
 		return nil, 0, err
 	}
 	limit := max(to-from+1, -1)
-
-	if !dto.SortField[sort.Field] {
-		sort.Field = "container_id"
-	}
-	if sort.Sort != dto.Asc {
-		sort.Sort = dto.Dsc
-	}
 
 	containers, total, err := s.containerRepo.View(filter, from, limit, sort)
 	if err != nil {
@@ -198,13 +185,6 @@ func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilte
 		return nil, err
 	}
 	limit := max(to-from+1, 1)
-
-	if !dto.SortField[sort.Field] {
-		sort.Field = "container_id"
-	}
-	if sort.Sort != dto.Asc {
-		sort.Sort = dto.Dsc
-	}
 
 	containers, _, err := s.containerRepo.View(filter, from, limit, sort)
 	if err != nil {

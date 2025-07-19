@@ -100,7 +100,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 		})
 		return
 	}
-	to, err := strconv.Atoi(c.DefaultQuery("to", "10"))
+	to, err := strconv.Atoi(c.DefaultQuery("to", "-1"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),
@@ -246,7 +246,7 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 		})
 		return
 	}
-	to, err := strconv.Atoi(c.DefaultQuery("to", "10"))
+	to, err := strconv.Atoi(c.DefaultQuery("to", "-1"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),

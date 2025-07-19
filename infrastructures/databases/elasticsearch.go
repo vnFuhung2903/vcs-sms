@@ -10,16 +10,16 @@ type IElasticsearchFactory interface {
 }
 
 type elasticsearchFactory struct {
-	Address string
+	address string
 }
 
 func NewElasticsearchFactory(env env.ElasticsearchEnv) IElasticsearchFactory {
-	return &elasticsearchFactory{Address: env.ElasticsearchAddress}
+	return &elasticsearchFactory{address: env.ElasticsearchAddress}
 }
 
 func (f *elasticsearchFactory) ConnectElasticsearch() (*elasticsearch.Client, error) {
 	cfg := elasticsearch.Config{
-		Addresses: []string{f.Address},
+		Addresses: []string{f.address},
 	}
 	es, err := elasticsearch.NewClient(cfg)
 	return es, err

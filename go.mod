@@ -113,6 +113,7 @@ require (
 
 require (
 	github.com/docker/docker v28.2.2+incompatible
+	github.com/elastic/go-elasticsearch v0.0.0
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/jackc/pgpassfile v1.0.0 // indirect

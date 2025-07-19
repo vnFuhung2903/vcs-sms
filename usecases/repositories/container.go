@@ -67,7 +67,7 @@ func (r *containerRepository) View(filter dto.ContainerFilter, from int, limit i
 		return nil, 0, err
 	}
 
-	query = query.Order(fmt.Sprintf("%s %s", sort.Field, sort.Sort))
+	query = query.Order(fmt.Sprintf("%s %s", sort.Field, sort.Order))
 
 	var containers []*entities.Container
 	if err := query.Limit(limit).Offset(from - 1).Find(&containers).Error; err != nil {

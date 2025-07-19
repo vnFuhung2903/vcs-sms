@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/elastic/go-elasticsearch/esapi"
 	"github.com/vnFuhung2903/vcs-sms/dto"
+	"github.com/vnFuhung2903/vcs-sms/interfaces"
 	"github.com/vnFuhung2903/vcs-sms/pkg/docker"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
@@ -23,11 +24,11 @@ type IHealthcheckService interface {
 
 type HealthcheckService struct {
 	containerRepo repositories.IContainerRepository
-	esClient      *elasticsearch.Client
+	esClient      interfaces.IElasticsearchClient
 	logger        logger.ILogger
 }
 
-func NewHealthcheckService(repo repositories.IContainerRepository, dockerClient docker.IDockerClient, esClient *elasticsearch.Client, logger logger.ILogger) IHealthcheckService {
+func NewHealthcheckService(repo repositories.IContainerRepository, dockerClient docker.IDockerClient, esClient interfaces.IElasticsearchClient, logger logger.ILogger) IHealthcheckService {
 	return &HealthcheckService{
 		containerRepo: repo,
 		esClient:      esClient,
@@ -131,7 +132,10 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 		}
 	}
 
-	res, err := s.esClient.Bulk(bytes.NewReader(buf.Bytes()))
+	req := esapi.BulkRequest{
+		Body: bytes.NewReader(buf.Bytes()),
+	}
+	res, err := s.esClient.Do(ctx, req)
 	if err != nil {
 		s.logger.Error("failed to bulk es", zap.Error(err))
 		return err
@@ -176,10 +180,10 @@ func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limi
 		body.WriteByte('\n')
 	}
 
-	res, err := s.esClient.Msearch(
-		strings.NewReader(body.String()),
-		s.esClient.Msearch.WithContext(ctx),
-	)
+	req := esapi.MsearchRequest{
+		Body: strings.NewReader(body.String()),
+	}
+	res, err := s.esClient.Do(ctx, req)
 	if err != nil {
 		s.logger.Error("failed to msearch containers", zap.Error(err))
 		return nil, err

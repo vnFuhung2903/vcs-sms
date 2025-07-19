@@ -7,6 +7,7 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/api"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/infrastructures/databases"
+	"github.com/vnFuhung2903/vcs-sms/interfaces"
 	"github.com/vnFuhung2903/vcs-sms/pkg/docker"
 	"github.com/vnFuhung2903/vcs-sms/pkg/env"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
@@ -26,10 +27,21 @@ func main() {
 		log.Fatalf("Failed to init logger: %v", err)
 	}
 
-	postgresDb := databases.ConnectPostgresDb(env.PostgresEnv)
+	postgresDb, err := databases.ConnectPostgresDb(env.PostgresEnv)
+	if err != nil {
+		log.Fatalf("Failed to create docker client: %v", err)
+	}
 	postgresDb.AutoMigrate(&entities.Container{}, &entities.User{})
-	esClient := databases.ConnectESDb()
-	redisClient := databases.ConnectRedis()
+
+	esRawClient, err := databases.NewElasticsearchFactory(env.ElasticsearchEnv).ConnectElasticsearch()
+	if err != nil {
+		log.Fatalf("Failed to create docker client: %v", err)
+	}
+	esClient := interfaces.NewElasticsearchClient(esRawClient)
+
+	redisRawClient := databases.NewRedisFactory(env.RedisEnv).ConnectRedis()
+	redisClient := interfaces.NewRedisClient(redisRawClient)
+
 	dockerClient, err := docker.NewDockerClient()
 	if err != nil {
 		log.Fatalf("Failed to create docker client: %v", err)
@@ -39,7 +51,7 @@ func main() {
 	containerRepository := repositories.NewContainerRepository(postgresDb)
 	userRepository := repositories.NewUserRepository(postgresDb)
 
-	containerService := services.NewContainerService(containerRepository, logger)
+	containerService := services.NewContainerService(containerRepository, dockerClient, logger)
 	healthcheckService := services.NewHealthcheckService(containerRepository, dockerClient, esClient, logger)
 	reportService := services.NewReportService(logger, env.GomailEnv)
 	userService := services.NewUserService(userRepository, logger)

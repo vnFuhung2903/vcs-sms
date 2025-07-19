@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/suite"
+	"github.com/vnFuhung2903/vcs-sms/entities"
 )
 
 type DockerClientTestSuite struct {
@@ -27,16 +28,16 @@ func TestDockerClientTestSuite(t *testing.T) {
 }
 
 func (suite *DockerClientTestSuite) TestContainerOnLifeCycle() {
-	con, err := suite.client.Create(suite.ctx, "test-container", "nginx:1.28")
+	con, err := suite.client.Create(suite.ctx, "test-container", "nginx:stable-alpine-perl")
 	suite.NoError(err)
 
 	err = suite.client.Start(suite.ctx, con.ID)
 	suite.NoError(err)
 
-	_, err = suite.client.GetStatus(suite.ctx, con.ID)
-	suite.NoError(err)
-	_, err = suite.client.GetIpv4(suite.ctx, con.ID)
-	suite.NoError(err)
+	status := suite.client.GetStatus(suite.ctx, con.ID)
+	suite.Equal(entities.ContainerOn, status)
+	ipv4 := suite.client.GetIpv4(suite.ctx, con.ID)
+	suite.NotEqual("", ipv4)
 
 	err = suite.client.Stop(suite.ctx, con.ID)
 	suite.NoError(err)
@@ -46,13 +47,13 @@ func (suite *DockerClientTestSuite) TestContainerOnLifeCycle() {
 }
 
 func (suite *DockerClientTestSuite) TestContainerOffLifeCycle() {
-	con, err := suite.client.Create(suite.ctx, "test-container", "nginx:1.28")
+	con, err := suite.client.Create(suite.ctx, "test-container", "nginx:stable-alpine-perl")
 	suite.NoError(err)
 
-	_, err = suite.client.GetStatus(suite.ctx, con.ID)
-	suite.NoError(err)
-	_, err = suite.client.GetIpv4(suite.ctx, con.ID)
-	suite.Error(err)
+	status := suite.client.GetStatus(suite.ctx, con.ID)
+	suite.Equal(entities.ContainerOff, status)
+	ipv4 := suite.client.GetIpv4(suite.ctx, con.ID)
+	suite.Equal("", ipv4)
 
 	err = suite.client.Delete(suite.ctx, con.ID)
 	suite.NoError(err)
@@ -71,13 +72,13 @@ func (suite *DockerClientTestSuite) TestCreateContainerInvalidImage() {
 }
 
 func (suite *DockerClientTestSuite) TestGetStatusNonExistentContainer() {
-	_, err := suite.client.GetStatus(suite.ctx, "non-existent-container-id")
-	suite.Error(err)
+	status := suite.client.GetStatus(suite.ctx, "non-existent-container-id")
+	suite.Equal(entities.ContainerOff, status)
 }
 
 func (suite *DockerClientTestSuite) TestGetIpv4NonExistentContainer() {
-	_, err := suite.client.GetIpv4(suite.ctx, "non-existent-container-id")
-	suite.Error(err)
+	ipv4 := suite.client.GetIpv4(suite.ctx, "non-existent-container-id")
+	suite.Equal("", ipv4)
 }
 
 func (suite *DockerClientTestSuite) TestStartNonExistentContainer() {

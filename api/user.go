@@ -69,7 +69,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if err := h.jwtMiddleware.GenerateJWT(user.ID, user.Username, utils.HashMapToScopes(user.Scopes)); err != nil {
+	if err := h.jwtMiddleware.GenerateJWT(c.Request.Context(), user.ID, user.Username, utils.HashMapToScopes(user.Scopes)); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
@@ -107,7 +107,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	if err := h.jwtMiddleware.GenerateJWT(user.ID, user.Username, utils.HashMapToScopes(user.Scopes)); err != nil {
+	if err := h.jwtMiddleware.GenerateJWT(c.Request.Context(), user.ID, user.Username, utils.HashMapToScopes(user.Scopes)); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
