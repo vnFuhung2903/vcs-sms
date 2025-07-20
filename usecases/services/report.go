@@ -18,7 +18,7 @@ import (
 
 type IReportService interface {
 	SendEmail(ctx context.Context, to string, totalCount int, onCount int, offCount int, totalUptime float64, startTime time.Time, endTime time.Time) error
-	CalculateReportStatistic(data []*entities.Container, statusList map[string][]dto.EsStatus, startTime time.Time, endTime time.Time) (int, int, float64, error)
+	CalculateReportStatistic(data []*entities.Container, statusList map[string][]dto.EsStatus) (int, int, float64)
 }
 
 type ReportService struct {
@@ -92,19 +92,10 @@ func (s *ReportService) SendEmail(ctx context.Context, to string, totalCount int
 	return nil
 }
 
-func (s *ReportService) CalculateReportStatistic(data []*entities.Container, statusList map[string][]dto.EsStatus, startTime time.Time, endTime time.Time) (int, int, float64, error) {
-	if endTime.Before(startTime) {
-		err := fmt.Errorf("invalid date range")
-		s.logger.Error("failed to calculate report statistic", zap.Error(err))
-		return 0, 0, 0, err
-	}
-
+func (s *ReportService) CalculateReportStatistic(data []*entities.Container, statusList map[string][]dto.EsStatus) (int, int, float64) {
 	onCount := 0
 	offCount := 0
 	totalUptime := 0.0
-	if endTime.After(time.Now()) {
-		endTime = time.Now()
-	}
 
 	for _, container := range data {
 		if container.Status == entities.ContainerOn {
@@ -113,15 +104,12 @@ func (s *ReportService) CalculateReportStatistic(data []*entities.Container, sta
 			offCount++
 		}
 
-		prevTime := endTime
 		for _, status := range statusList[container.ContainerId] {
 			if status.Status == entities.ContainerOn {
-				totalUptime += prevTime.Sub(status.LastUpdated).Hours()
-			} else {
-				prevTime = status.LastUpdated
+				totalUptime += float64(status.Uptime) / 3600
 			}
 		}
 	}
 
-	return onCount, offCount, totalUptime, nil
+	return onCount, offCount, totalUptime
 }

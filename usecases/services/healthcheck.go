@@ -49,7 +49,6 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 	startTime := endTime.Add(-24 * time.Hour)
 	existingDocs, err := s.GetEsStatus(ctx, ids, 1, startTime, endTime)
 	if err != nil {
-		s.logger.Error("failed to msearch container", zap.Error(err))
 		return err
 	}
 
@@ -57,7 +56,7 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 
 	for _, status := range statusList {
 		old := existingDocs[status.ContainerId]
-		if len(old) != 1 {
+		if len(old) == 0 {
 			meta := map[string]map[string]string{
 				"index": {
 					"_index": indexName,
@@ -81,7 +80,7 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 		} else if old[0].Status == status.Status {
 			update := map[string]interface{}{
 				"doc": map[string]interface{}{
-					"uptime":       old[0].Uptime + int64(time.Since(old[0].LastUpdated)),
+					"uptime":       old[0].Uptime + int64(time.Since(old[0].LastUpdated).Seconds()),
 					"last_updated": time.Now().UTC().Truncate(time.Second),
 				},
 			}
@@ -137,11 +136,11 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 	}
 	res, err := s.esClient.Do(ctx, req)
 	if err != nil {
-		s.logger.Error("failed to bulk es", zap.Error(err))
+		s.logger.Error("failed to bulk elasticsearch status", zap.Error(err))
 		return err
 	}
 	defer res.Body.Close()
-	s.logger.Info("elasticsearch bulk indexed successfully")
+	s.logger.Info("elasticsearch status indexed successfully")
 	return nil
 }
 
@@ -185,14 +184,14 @@ func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limi
 	}
 	res, err := s.esClient.Do(ctx, req)
 	if err != nil {
-		s.logger.Error("failed to msearch containers", zap.Error(err))
+		s.logger.Error("failed to msearch elasticsearch status", zap.Error(err))
 		return nil, err
 	}
 	defer res.Body.Close()
 
 	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		s.logger.Error("failed to read msearch response body", zap.Error(err))
+		s.logger.Error("failed to read response body", zap.Error(err))
 		return nil, err
 	}
 
@@ -207,7 +206,7 @@ func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limi
 		} `json:"responses"`
 	}
 	if err := json.Unmarshal(bodyBytes, &parsed); err != nil {
-		s.logger.Error("failed to decode msearch response body", zap.Error(err))
+		s.logger.Error("failed to decode response body", zap.Error(err))
 		return nil, err
 	}
 
@@ -218,5 +217,6 @@ func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limi
 			results[containerId] = append(results[containerId], hit.Source)
 		}
 	}
+	s.logger.Info("elasticsearch status retrieved successfully", zap.Int("containers_count", len(results)))
 	return results, nil
 }

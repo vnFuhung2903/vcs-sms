@@ -46,7 +46,14 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	data, total, err := h.containerService.View(c.Request.Context(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{})
+	if req.StartTime.After(req.EndTime) {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error: "start time must be before end time",
+		})
+		return
+	}
+
+	data, total, err := h.containerService.View(c.Request.Context(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
@@ -67,13 +74,7 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	onCount, offCount, totalUptime, err := h.reportService.CalculateReportStatistic(data, results, req.StartTime, req.EndTime)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
-		})
-		return
-	}
+	onCount, offCount, totalUptime := h.reportService.CalculateReportStatistic(data, results)
 
 	if err := h.reportService.SendEmail(c.Request.Context(), req.Email, int(total), onCount, offCount, totalUptime, req.StartTime, req.EndTime); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{

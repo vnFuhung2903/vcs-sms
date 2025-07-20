@@ -258,6 +258,55 @@ func (s *ContainerServiceSuite) TestDeleteRepoError() {
 	s.ErrorContains(err, "delete failed")
 }
 
+func (s *ContainerServiceSuite) TestImport() {
+	f := excelize.NewFile()
+	sheet := f.GetSheetName(0)
+	f.SetCellValue(sheet, "A1", "Container Name")
+	f.SetCellValue(sheet, "B1", "Image Name")
+
+	f.SetCellValue(sheet, "A2", "test-name")
+	f.SetCellValue(sheet, "B2", "nginx")
+
+	var buf bytes.Buffer
+	err := f.Write(&buf)
+	s.Require().NoError(err)
+
+	reader := bytes.NewReader(buf.Bytes())
+	file := struct {
+		io.Reader
+		io.ReaderAt
+		io.Seeker
+		io.Closer
+	}{
+		Reader:   reader,
+		ReaderAt: reader,
+		Seeker:   reader,
+		Closer:   io.NopCloser(nil),
+	}
+
+	containerResp := &container.CreateResponse{ID: "test-id"}
+	containerEntity := &entities.Container{
+		ContainerId:   "test-id",
+		ContainerName: "test-name",
+		Status:        entities.ContainerOn,
+		Ipv4:          "127.0.0.1",
+	}
+
+	s.dockerClient.EXPECT().Create(s.ctx, "test-name", "nginx").Return(containerResp, nil)
+	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(nil)
+	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOn)
+	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("127.0.0.1")
+	s.mockRepo.EXPECT().Create("test-id", "test-name", entities.ContainerOn, "127.0.0.1").Return(containerEntity, nil)
+	s.logger.EXPECT().Info("container created successfully", zap.String("containerId", "test-id")).Times(1)
+	s.logger.EXPECT().Info("containers imported successfully").Times(1)
+
+	resp, err := s.containerService.Import(s.ctx, file)
+	s.NoError(err)
+	s.Equal(1, resp.SuccessCount)
+	s.Equal(0, resp.FailedCount)
+	s.Contains(resp.SuccessContainers, "test-name")
+}
+
 func (s *ContainerServiceSuite) TestImportInvalidExcelFile() {
 	data := []byte("this is not a real Excel file")
 	reader := bytes.NewReader(data)
@@ -281,9 +330,19 @@ func (s *ContainerServiceSuite) TestImportInvalidExcelFile() {
 	s.Nil(resp)
 }
 
-func (s *ContainerServiceSuite) TestImportReadRowsError() {
-	data := []byte("PK\x03\x04")
-	reader := bytes.NewReader(data)
+func (s *ContainerServiceSuite) TestImportWithMissingHeaderRows() {
+	s.logger.EXPECT().Error("failed to import containers", gomock.Any()).Times(1)
+
+	f := excelize.NewFile()
+	sheetName := "Sheet1"
+	f.SetSheetName("Sheet1", sheetName)
+	f.SetCellValue(sheetName, "A1", "Container Id")
+
+	var buf bytes.Buffer
+	err := f.Write(&buf)
+	s.Require().NoError(err)
+
+	reader := bytes.NewReader(buf.Bytes())
 
 	fakeFile := struct {
 		io.Reader
@@ -297,11 +356,151 @@ func (s *ContainerServiceSuite) TestImportReadRowsError() {
 		Closer:   io.NopCloser(nil),
 	}
 
-	s.logger.EXPECT().Error(gomock.Any(), gomock.Any()).Times(1)
+	resp, err := s.containerService.Import(s.ctx, fakeFile)
+	s.Error(err)
+	s.Nil(resp)
+}
+
+func (s *ContainerServiceSuite) TestImportWithInvalidHeaderRows() {
+	s.logger.EXPECT().Error("failed to import containers", gomock.Any()).Times(1)
+
+	f := excelize.NewFile()
+	sheetName := "Sheet1"
+	f.SetSheetName("Sheet1", sheetName)
+	f.SetCellValue(sheetName, "A1", "Container Id")
+	f.SetCellValue(sheetName, "B1", "Image Name")
+
+	f.SetCellValue(sheetName, "A2", "test-id")
+
+	var buf bytes.Buffer
+	err := f.Write(&buf)
+	s.Require().NoError(err)
+
+	reader := bytes.NewReader(buf.Bytes())
+
+	fakeFile := struct {
+		io.Reader
+		io.ReaderAt
+		io.Seeker
+		io.Closer
+	}{
+		Reader:   reader,
+		ReaderAt: reader,
+		Seeker:   reader,
+		Closer:   io.NopCloser(nil),
+	}
 
 	resp, err := s.containerService.Import(s.ctx, fakeFile)
 	s.Error(err)
 	s.Nil(resp)
+}
+
+func (s *ContainerServiceSuite) TestImportWithInvalidRows() {
+	s.logger.EXPECT().Warn("skipping invalid row", gomock.Any()).Times(1)
+	s.logger.EXPECT().Info("containers imported successfully").Times(1)
+
+	f := excelize.NewFile()
+	sheetName := "Sheet1"
+	f.SetSheetName("Sheet1", sheetName)
+	f.SetCellValue(sheetName, "A1", "Container Name")
+	f.SetCellValue(sheetName, "B1", "Image Name")
+
+	f.SetCellValue(sheetName, "A2", "test-name")
+
+	var buf bytes.Buffer
+	err := f.Write(&buf)
+	s.Require().NoError(err)
+
+	reader := bytes.NewReader(buf.Bytes())
+
+	fakeFile := struct {
+		io.Reader
+		io.ReaderAt
+		io.Seeker
+		io.Closer
+	}{
+		Reader:   reader,
+		ReaderAt: reader,
+		Seeker:   reader,
+		Closer:   io.NopCloser(nil),
+	}
+
+	resp, err := s.containerService.Import(s.ctx, fakeFile)
+	s.NoError(err)
+	s.NotNil(resp)
+	s.Equal(0, resp.SuccessCount)
+	s.Equal(0, resp.FailedCount)
+}
+
+func (s *ContainerServiceSuite) TestImportCreateError() {
+	f := excelize.NewFile()
+	sheet := f.GetSheetName(0)
+	f.SetCellValue(sheet, "A1", "Container Name")
+	f.SetCellValue(sheet, "B1", "Image Name")
+
+	f.SetCellValue(sheet, "A2", "test-name")
+	f.SetCellValue(sheet, "B2", "nginx")
+
+	var buf bytes.Buffer
+	err := f.Write(&buf)
+	s.Require().NoError(err)
+
+	reader := bytes.NewReader(buf.Bytes())
+	file := struct {
+		io.Reader
+		io.ReaderAt
+		io.Seeker
+		io.Closer
+	}{
+		Reader:   reader,
+		ReaderAt: reader,
+		Seeker:   reader,
+		Closer:   io.NopCloser(nil),
+	}
+
+	s.dockerClient.EXPECT().Create(s.ctx, "test-name", "nginx").Return(nil, errors.New("create error"))
+	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
+	s.logger.EXPECT().Info("containers imported successfully").Times(1)
+
+	resp, err := s.containerService.Import(s.ctx, file)
+	s.NoError(err)
+	s.Equal(0, resp.SuccessCount)
+	s.Equal(1, resp.FailedCount)
+	s.Contains(resp.FailedContainers, "test-name")
+}
+
+func (s *ContainerServiceSuite) TestImportInvalidContainerField() {
+	f := excelize.NewFile()
+	sheet := f.GetSheetName(0)
+	f.SetCellValue(sheet, "A1", "Container Name")
+	f.SetCellValue(sheet, "B1", "Image Name")
+
+	f.SetCellValue(sheet, "A2", "")
+	f.SetCellValue(sheet, "B2", "nginx")
+
+	var buf bytes.Buffer
+	err := f.Write(&buf)
+	s.Require().NoError(err)
+
+	reader := bytes.NewReader(buf.Bytes())
+	file := struct {
+		io.Reader
+		io.ReaderAt
+		io.Seeker
+		io.Closer
+	}{
+		Reader:   reader,
+		ReaderAt: reader,
+		Seeker:   reader,
+		Closer:   io.NopCloser(nil),
+	}
+	s.logger.EXPECT().Info("containers imported successfully").Times(1)
+
+	resp, err := s.containerService.Import(s.ctx, file)
+	s.NoError(err)
+	s.Equal(0, resp.SuccessCount)
+	s.Equal(1, resp.FailedCount)
+	s.Contains(resp.FailedContainers, "")
 }
 
 func (s *ContainerServiceSuite) TestExport() {
@@ -341,198 +540,4 @@ func (s *ContainerServiceSuite) TestExportError() {
 
 	_, err := s.containerService.Export(s.ctx, filter, from, to, sort)
 	s.ErrorContains(err, "fetch error")
-}
-
-func (s *ContainerServiceSuite) TestExportWithEmptyData() {
-	filter := dto.ContainerFilter{}
-	sort := dto.ContainerSort{Field: "container_id", Order: "asc"}
-	from, to := 1, 10
-	containers := []*entities.Container{}
-
-	s.mockRepo.EXPECT().View(filter, from, to-from+1, sort).Return(containers, int64(0), nil)
-	s.logger.EXPECT().Info(gomock.Any(), gomock.Any()).Times(1)
-
-	result, err := s.containerService.Export(s.ctx, filter, from, to, sort)
-	s.NoError(err)
-	s.True(len(result) > 0)
-}
-
-func (s *ContainerServiceSuite) TestImportWithValidExcelFile() {
-	s.logger.EXPECT().Error("failed to import containers", gomock.Any()).Times(1)
-
-	data := []byte("PK\x03\x04\x14\x00\x00\x00\x08\x00")
-	reader := bytes.NewReader(data)
-
-	fakeFile := struct {
-		io.Reader
-		io.ReaderAt
-		io.Seeker
-		io.Closer
-	}{
-		Reader:   reader,
-		ReaderAt: reader,
-		Seeker:   reader,
-		Closer:   io.NopCloser(nil),
-	}
-
-	resp, err := s.containerService.Import(s.ctx, fakeFile)
-	s.Error(err)
-	s.Nil(resp)
-}
-
-func (s *ContainerServiceSuite) TestImportWithInvalidRows() {
-	s.logger.EXPECT().Warn("skipping invalid row", gomock.Any()).Times(1)
-	s.logger.EXPECT().Info("containers imported successfully").Times(1)
-
-	f := excelize.NewFile()
-	sheetName := "Sheet1"
-	f.SetSheetName("Sheet1", sheetName)
-	f.SetCellValue(sheetName, "A1", "Container Name")
-	f.SetCellValue(sheetName, "B1", "Image Name")
-
-	f.SetCellValue(sheetName, "A2", "test-id")
-
-	var buf bytes.Buffer
-	err := f.Write(&buf)
-	s.Require().NoError(err)
-
-	reader := bytes.NewReader(buf.Bytes())
-
-	fakeFile := struct {
-		io.Reader
-		io.ReaderAt
-		io.Seeker
-		io.Closer
-	}{
-		Reader:   reader,
-		ReaderAt: reader,
-		Seeker:   reader,
-		Closer:   io.NopCloser(nil),
-	}
-
-	resp, err := s.containerService.Import(s.ctx, fakeFile)
-	s.NoError(err)
-	s.NotNil(resp)
-	s.Equal(0, resp.SuccessCount)
-	s.Equal(0, resp.FailedCount)
-}
-
-func (s *ContainerServiceSuite) TestImport() {
-	f := excelize.NewFile()
-	sheet := f.GetSheetName(0)
-	f.SetCellValue(sheet, "A1", "Container Name")
-	f.SetCellValue(sheet, "B1", "Image Name")
-
-	f.SetCellValue(sheet, "A2", "test-id")
-	f.SetCellValue(sheet, "B2", "nginx")
-
-	var buf bytes.Buffer
-	err := f.Write(&buf)
-	s.Require().NoError(err)
-
-	reader := bytes.NewReader(buf.Bytes())
-	file := struct {
-		io.Reader
-		io.ReaderAt
-		io.Seeker
-		io.Closer
-	}{
-		Reader:   reader,
-		ReaderAt: reader,
-		Seeker:   reader,
-		Closer:   io.NopCloser(nil),
-	}
-
-	containerResp := &container.CreateResponse{ID: "test-id"}
-	containerEntity := &entities.Container{
-		ContainerId:   "test-id",
-		ContainerName: "test-id",
-		Status:        entities.ContainerOn,
-		Ipv4:          "127.0.0.1",
-	}
-
-	s.dockerClient.EXPECT().Create(s.ctx, "test-id", "nginx").Return(containerResp, nil)
-	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(nil)
-	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOn)
-	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("127.0.0.1")
-	s.mockRepo.EXPECT().Create("test-id", "test-id", entities.ContainerOn, "127.0.0.1").Return(containerEntity, nil)
-	s.logger.EXPECT().Info("container created successfully", zap.String("containerId", "test-id")).Times(1)
-	s.logger.EXPECT().Info("containers imported successfully").Times(1)
-
-	resp, err := s.containerService.Import(s.ctx, file)
-	s.NoError(err)
-	s.Equal(1, resp.SuccessCount)
-	s.Equal(0, resp.FailedCount)
-	s.Contains(resp.SuccessContainers, "test-id")
-}
-
-func (s *ContainerServiceSuite) TestImportCannotCreate() {
-	f := excelize.NewFile()
-	sheet := f.GetSheetName(0)
-	f.SetCellValue(sheet, "A1", "Container Name")
-	f.SetCellValue(sheet, "B1", "Image Name")
-
-	f.SetCellValue(sheet, "A2", "test-id")
-	f.SetCellValue(sheet, "B2", "nginx")
-
-	var buf bytes.Buffer
-	err := f.Write(&buf)
-	s.Require().NoError(err)
-
-	reader := bytes.NewReader(buf.Bytes())
-	file := struct {
-		io.Reader
-		io.ReaderAt
-		io.Seeker
-		io.Closer
-	}{
-		Reader:   reader,
-		ReaderAt: reader,
-		Seeker:   reader,
-		Closer:   io.NopCloser(nil),
-	}
-
-	s.dockerClient.EXPECT().Create(s.ctx, "test-id", "nginx").Return(nil, errors.New("create error"))
-	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
-	s.logger.EXPECT().Info("containers imported successfully").Times(1)
-
-	resp, err := s.containerService.Import(s.ctx, file)
-	s.NoError(err)
-	s.Equal(0, resp.SuccessCount)
-	s.Equal(1, resp.FailedCount)
-	s.Contains(resp.FailedContainers, "test-id")
-}
-
-func (s *ContainerServiceSuite) TestImportInvalidContainerField() {
-	f := excelize.NewFile()
-	sheet := f.GetSheetName(0)
-	f.SetCellValue(sheet, "A1", "Container Name")
-	f.SetCellValue(sheet, "B1", "Image Name")
-
-	f.SetCellValue(sheet, "A2", "")
-	f.SetCellValue(sheet, "B2", "nginx")
-
-	var buf bytes.Buffer
-	err := f.Write(&buf)
-	s.Require().NoError(err)
-
-	reader := bytes.NewReader(buf.Bytes())
-	file := struct {
-		io.Reader
-		io.ReaderAt
-		io.Seeker
-		io.Closer
-	}{
-		Reader:   reader,
-		ReaderAt: reader,
-		Seeker:   reader,
-		Closer:   io.NopCloser(nil),
-	}
-	s.logger.EXPECT().Info("containers imported successfully").Times(1)
-
-	resp, err := s.containerService.Import(s.ctx, file)
-	s.NoError(err)
-	s.Equal(0, resp.SuccessCount)
-	s.Equal(1, resp.FailedCount)
-	s.Contains(resp.FailedContainers, "")
 }

@@ -33,8 +33,8 @@ type ContainerFilter struct {
 }
 
 type ContainerSort struct {
-	Field string    `form:"field" binding:"omitempty,oneof=container_id container_name status ipv4 created_at updated_at"`
-	Order SortOrder `form:"order" binding:"omitempty,oneof=asc desc"`
+	Field string    `form:"field" binding:"required,oneof=container_id container_name status ipv4 created_at updated_at"`
+	Order SortOrder `form:"order" binding:"required,oneof=asc desc"`
 }
 
 var SortField = map[string]bool{

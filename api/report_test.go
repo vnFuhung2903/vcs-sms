@@ -76,7 +76,7 @@ func (s *ReportHandlerSuite) TestSendEmail() {
 	}
 
 	s.mockContainerService.EXPECT().
-		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{}).
+		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"}).
 		Return(containers, int64(2), nil)
 
 	s.mockHealthcheckService.EXPECT().
@@ -84,8 +84,8 @@ func (s *ReportHandlerSuite) TestSendEmail() {
 		Return(esResults, nil)
 
 	s.mockReportService.EXPECT().
-		CalculateReportStatistic(containers, esResults, startTime, endTime).
-		Return(1, 1, 50.0, nil)
+		CalculateReportStatistic(containers, esResults).
+		Return(1, 1, 50.0)
 
 	s.mockReportService.EXPECT().
 		SendEmail(gomock.Any(), "test@example.com", 2, 1, 1, 50.0, startTime, endTime).
@@ -113,9 +113,23 @@ func (s *ReportHandlerSuite) TestSendEmailInvalidQueryBinding() {
 	s.NotEmpty(response.Error)
 }
 
+func (s *ReportHandlerSuite) TestSendEmailInvalidDateRange() {
+	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2024-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z", nil)
+	w := httptest.NewRecorder()
+
+	s.router.ServeHTTP(w, req)
+
+	s.Equal(http.StatusBadRequest, w.Code)
+
+	var response dto.ErrorResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	s.NoError(err)
+	s.NotEmpty(response.Error)
+}
+
 func (s *ReportHandlerSuite) TestSendEmailContainerServiceError() {
 	s.mockContainerService.EXPECT().
-		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{}).
+		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"}).
 		Return([]*entities.Container{}, int64(0), errors.New("database connection failed"))
 
 	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2023-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z", nil)
@@ -140,7 +154,7 @@ func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceError() {
 	}
 
 	s.mockContainerService.EXPECT().
-		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{}).
+		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"}).
 		Return(containers, int64(1), nil)
 
 	s.mockHealthcheckService.EXPECT().
@@ -160,43 +174,6 @@ func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceError() {
 	s.Equal("elasticsearch connection failed", response.Error)
 }
 
-func (s *ReportHandlerSuite) TestSendEmailCalculateStatisticError() {
-	startTime := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
-	endTime := time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC)
-
-	containers := []*entities.Container{
-		{ContainerId: "container1", ContainerName: "test1", Status: "running"},
-	}
-
-	esResults := map[string][]dto.EsStatus{
-		"container1": {{ContainerId: "container1", Status: "running"}},
-	}
-
-	s.mockContainerService.EXPECT().
-		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{}).
-		Return(containers, int64(1), nil)
-
-	s.mockHealthcheckService.EXPECT().
-		GetEsStatus(gomock.Any(), []string{"container1"}, 200, startTime, endTime).
-		Return(esResults, nil)
-
-	s.mockReportService.EXPECT().
-		CalculateReportStatistic(containers, esResults, startTime, endTime).
-		Return(0, 0, 0.0, errors.New("calculation failed"))
-
-	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2023-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z", nil)
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusInternalServerError, w.Code)
-
-	var response dto.ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("calculation failed", response.Error)
-}
-
 func (s *ReportHandlerSuite) TestSendEmailSendEmailServiceError() {
 	startTime := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
 	endTime := time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC)
@@ -210,7 +187,7 @@ func (s *ReportHandlerSuite) TestSendEmailSendEmailServiceError() {
 	}
 
 	s.mockContainerService.EXPECT().
-		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{}).
+		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"}).
 		Return(containers, int64(1), nil)
 
 	s.mockHealthcheckService.EXPECT().
@@ -218,8 +195,8 @@ func (s *ReportHandlerSuite) TestSendEmailSendEmailServiceError() {
 		Return(esResults, nil)
 
 	s.mockReportService.EXPECT().
-		CalculateReportStatistic(containers, esResults, startTime, endTime).
-		Return(1, 0, 100.0, nil)
+		CalculateReportStatistic(containers, esResults).
+		Return(1, 0, 100.0)
 
 	s.mockReportService.EXPECT().
 		SendEmail(gomock.Any(), "test@example.com", 1, 1, 0, 100.0, startTime, endTime).

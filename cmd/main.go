@@ -2,6 +2,10 @@ package main
 
 import (
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/api"
@@ -14,6 +18,7 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/pkg/middlewares"
 	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
+	"github.com/vnFuhung2903/vcs-sms/workers"
 )
 
 func main() {
@@ -60,10 +65,29 @@ func main() {
 	reportHandler := api.NewReportHandler(containerService, healthcheckService, reportService, jwtMiddleware)
 	userHandler := api.NewUserHandler(userService, jwtMiddleware)
 
+	esWorker := workers.NewEsStatusWorker(
+		dockerClient,
+		containerService,
+		healthcheckService,
+		logger,
+		30*time.Second,
+	)
+	esWorker.Start(1)
+
 	r := gin.Default()
 	containerHandler.SetupRoutes(r)
 	reportHandler.SetupRoutes(r)
 	userHandler.SetupRoutes(r)
+
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		<-quit
+
+		logger.Info("Shutting down gracefully...")
+		esWorker.Stop()
+		os.Exit(0)
+	}()
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("Failed to run container: %v", err)
 	}

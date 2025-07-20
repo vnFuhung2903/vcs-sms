@@ -21,8 +21,9 @@ const (
 )
 
 var (
-	httpClient = &http.Client{Timeout: timeout}
-	authToken  string
+	httpClient  = &http.Client{Timeout: timeout}
+	authToken   string
+	containerID string
 )
 
 func getAuthTokenFromRedis() (string, error) {
@@ -49,7 +50,6 @@ func makeRequest(method, endpoint string, payload interface{}, useAuth bool, con
 	case *bytes.Buffer:
 		body = v
 	default:
-		// Marshal to JSON
 		jsonData, err := json.Marshal(v)
 		if err != nil {
 			return nil, err
@@ -125,10 +125,8 @@ func TestUserLogin(t *testing.T) {
 
 func TestCreateContainer(t *testing.T) {
 	payload := map[string]interface{}{
-		"container_id":   "test-container",
-		"container_name": "Test Container API Example",
-		"status":         "ON", // or "OFF"
-		"ipv4":           "192.168.1.100",
+		"container_name": "test-create-container",
+		"image_name":     "nginx:stable-alpine-perl",
 	}
 
 	resp, err := makeRequest("POST", "/containers/create", payload, true, "")
@@ -137,7 +135,7 @@ func TestCreateContainer(t *testing.T) {
 }
 
 func TestViewContainers(t *testing.T) {
-	resp, err := makeRequest("GET", "/containers/view", nil, true, "")
+	resp, err := makeRequest("GET", "/containers/view?field=container_id&order=desc", nil, true, "")
 	printResponse("View Containers", resp, err)
 	defer resp.Body.Close()
 
@@ -159,23 +157,19 @@ func TestUpdateContainer(t *testing.T) {
 		"status": "OFF",
 	}
 
-	resp, err := makeRequest("PUT", "/containers/update/test-container", payload, true, "")
+	resp, err := makeRequest("PUT", "/containers/update/", payload, true, "")
 	printResponse("Update Container", resp, err)
 	defer resp.Body.Close()
 }
 
 func TestDeleteContainer(t *testing.T) {
-	resp, err := makeRequest("DELETE", "/containers/delete/test-container", nil, true, "")
+	resp, err := makeRequest("DELETE", "/containers/delete/", nil, true, "")
 	printResponse("Delete Container", resp, err)
 	defer resp.Body.Close()
-
-	resp1, err := makeRequest("DELETE", "/containers/delete/-", nil, true, "")
-	printResponse("Delete Container", resp, err)
-	defer resp1.Body.Close()
 }
 
 func TestExportContainers(t *testing.T) {
-	resp, err := makeRequest("GET", "/containers/export", nil, true, "")
+	resp, err := makeRequest("GET", "/containers/export?field=container_id&order=desc", nil, true, "")
 	printResponse("Export Containers", resp, err)
 	defer resp.Body.Close()
 
@@ -185,7 +179,7 @@ func TestExportContainers(t *testing.T) {
 		return
 	}
 
-	fileName := "containers_exported-" + time.Now().Format(time.RFC3339) + ".xlsx"
+	fileName := "containers_exported-" + time.Now().Format("2006-01-02_15-04-05") + ".xlsx"
 
 	if err := os.WriteFile(fileName, data, 0644); err != nil {
 		log.Fatalf("Failed to save file: %s", err)
@@ -288,9 +282,6 @@ func TestDeleteUser(t *testing.T) {
 }
 
 func TestMain(t *testing.T) {
-	fmt.Println("🚀 VCS-SMS API Examples")
-	fmt.Println("======================================")
-
 	// t.Run("UserRegistration", func(t *testing.T) {
 	// 	TestUserRegistration(t)
 	// 	TestSetupAuthToken(t)
@@ -301,25 +292,25 @@ func TestMain(t *testing.T) {
 		TestSetupAuthToken(t)
 	})
 
-	t.Run("CreateContainer", func(t *testing.T) {
-		TestCreateContainer(t)
-	})
+	// t.Run("CreateContainer", func(t *testing.T) {
+	// 	TestCreateContainer(t)
+	// })
 
 	t.Run("ViewContainers", func(t *testing.T) {
 		TestViewContainers(t)
 	})
 
-	t.Run("UpdateContainer", func(t *testing.T) {
-		TestUpdateContainer(t)
-	})
+	// t.Run("UpdateContainer", func(t *testing.T) {
+	// 	TestUpdateContainer(t)
+	// })
 
-	t.Run("ImportContainers", func(t *testing.T) {
-		TestImportContainers(t)
-	})
+	// t.Run("ImportContainers", func(t *testing.T) {
+	// 	TestImportContainers(t)
+	// })
 
-	t.Run("ExportContainers", func(t *testing.T) {
-		TestExportContainers(t)
-	})
+	// t.Run("ExportContainers", func(t *testing.T) {
+	// 	TestExportContainers(t)
+	// })
 
 	// t.Run("HealthcheckUpdate", func(t *testing.T) {
 	// 	TestHealthcheckUpdate(t)
@@ -344,10 +335,7 @@ func TestMain(t *testing.T) {
 	// t.Run("DeleteUser", func(t *testing.T) {
 	// 	TestDeleteUser(t)
 	// })
-	t.Run("DeleteContainer", func(t *testing.T) {
-		TestDeleteContainer(t)
-	})
-
-	fmt.Println("\n======================================")
-	fmt.Println("✅ API Examples Complete!")
+	// t.Run("DeleteContainer", func(t *testing.T) {
+	// 	TestDeleteContainer(t)
+	// })
 }

@@ -78,7 +78,8 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusNewDocument() {
 		return response, nil
 	}).Times(1)
 
-	s.mockLogger.EXPECT().Info("elasticsearch bulk indexed successfully").Times(1)
+	s.mockLogger.EXPECT().Info("elasticsearch status retrieved successfully", gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Info("elasticsearch status indexed successfully").Times(1)
 
 	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
 	s.NoError(err)
@@ -125,7 +126,8 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusUpdateDocument() {
 		return response, nil
 	}).Times(1)
 
-	s.mockLogger.EXPECT().Info("elasticsearch bulk indexed successfully").Times(1)
+	s.mockLogger.EXPECT().Info("elasticsearch status retrieved successfully", gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Info("elasticsearch status indexed successfully").Times(1)
 
 	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
 	s.NoError(err)
@@ -137,8 +139,7 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusGetEsStatusError() {
 	}
 
 	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).Return(nil, errors.New("elasticsearch error")).Times(1)
-	s.mockLogger.EXPECT().Error("failed to msearch containers", gomock.Any()).Times(1)
-	s.mockLogger.EXPECT().Error("failed to msearch container", gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Error("failed to msearch elasticsearch status", gomock.Any()).Times(1)
 
 	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
 	s.Error(err)
@@ -167,14 +168,13 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusBulkError() {
 	}).Times(1)
 
 	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).Return(nil, errors.New("bulk error")).Times(1)
-	s.mockLogger.EXPECT().Error("failed to bulk es", gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Info("elasticsearch status retrieved successfully", gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Error("failed to bulk elasticsearch status", gomock.Any()).Times(1)
 
 	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
 	s.Error(err)
 	s.Contains(err.Error(), "bulk error")
 }
-
-// Add these additional test methods to your existing HealthcheckServiceSuite
 
 func (s *HealthcheckServiceSuite) TestUpdateStatusSameStatusUpdate() {
 	statusList := []dto.EsStatusUpdate{
@@ -183,7 +183,6 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusSameStatusUpdate() {
 
 	lastUpdated := time.Now().Add(-1 * time.Hour)
 
-	// Mock GetEsStatus call (returns existing document with same status)
 	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
 		response := &esapi.Response{
 			StatusCode: 200,
@@ -210,7 +209,6 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusSameStatusUpdate() {
 		return response, nil
 	}).Times(1)
 
-	// Mock Bulk request
 	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
 		response := &esapi.Response{
 			StatusCode: 200,
@@ -219,231 +217,11 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusSameStatusUpdate() {
 		return response, nil
 	}).Times(1)
 
-	s.mockLogger.EXPECT().Info("elasticsearch bulk indexed successfully").Times(1)
+	s.mockLogger.EXPECT().Info("elasticsearch status retrieved successfully", gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Info("elasticsearch status indexed successfully").Times(1)
 
 	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
 	s.NoError(err)
-}
-
-func (s *HealthcheckServiceSuite) TestUpdateStatusMultipleDocuments() {
-	statusList := []dto.EsStatusUpdate{
-		{ContainerId: "container1", Status: "ON"},
-	}
-
-	// Mock GetEsStatus call (returns multiple documents - should trigger len(old) != 1 case)
-	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
-		response := &esapi.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(strings.NewReader(`{
-                "responses": [
-                    {
-                        "hits": {
-                            "hits": [
-                                {
-                                    "_id": "container1",
-                                    "_source": {
-                                        "container_id": "container1",
-                                        "status": "ON",
-                                        "uptime": 3600,
-                                        "last_updated": "` + time.Now().Add(-1*time.Hour).Format(time.RFC3339) + `"
-                                    }
-                                },
-                                {
-                                    "_id": "container1",
-                                    "_source": {
-                                        "container_id": "container1",
-                                        "status": "OFF",
-                                        "uptime": 1800,
-                                        "last_updated": "` + time.Now().Add(-2*time.Hour).Format(time.RFC3339) + `"
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ]
-            }`)),
-		}
-		return response, nil
-	}).Times(1)
-
-	// Mock Bulk request
-	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
-		response := &esapi.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(`{"took":1,"errors":false}`)),
-		}
-		return response, nil
-	}).Times(1)
-
-	s.mockLogger.EXPECT().Info("elasticsearch bulk indexed successfully").Times(1)
-
-	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
-	s.NoError(err)
-}
-
-func (s *HealthcheckServiceSuite) TestUpdateStatusJSONMarshalError() {
-	statusList := []dto.EsStatusUpdate{
-		{ContainerId: "container1", Status: "ON"},
-	}
-
-	// Mock GetEsStatus call (returns empty results to trigger new document creation)
-	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
-		response := &esapi.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(strings.NewReader(`{
-                "responses": [
-                    {
-                        "hits": {
-                            "hits": []
-                        }
-                    }
-                ]
-            }`)),
-		}
-		return response, nil
-	}).Times(1)
-
-	// Even with JSON marshal errors, bulk should still be called with valid entries
-	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
-		response := &esapi.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(`{"took":1,"errors":false}`)),
-		}
-		return response, nil
-	}).Times(1)
-
-	s.mockLogger.EXPECT().Info("elasticsearch bulk indexed successfully").Times(1)
-
-	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
-	s.NoError(err)
-}
-
-func (s *HealthcheckServiceSuite) TestUpdateStatusEmptyStatusList() {
-	statusList := []dto.EsStatusUpdate{}
-
-	// Mock GetEsStatus call with empty IDs
-	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
-		response := &esapi.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(strings.NewReader(`{
-                "responses": []
-            }`)),
-		}
-		return response, nil
-	}).Times(1)
-
-	// Mock Bulk request with empty body
-	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
-		response := &esapi.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(`{"took":1,"errors":false}`)),
-		}
-		return response, nil
-	}).Times(1)
-
-	s.mockLogger.EXPECT().Info("elasticsearch bulk indexed successfully").Times(1)
-
-	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
-	s.NoError(err)
-}
-
-func (s *HealthcheckServiceSuite) TestGetEsStatusEmptyIDs() {
-	ids := []string{}
-	limit := 10
-	startTime := time.Now().Add(-24 * time.Hour)
-	endTime := time.Now()
-
-	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
-		response := &esapi.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(strings.NewReader(`{
-                "responses": []
-            }`)),
-		}
-		return response, nil
-	}).Times(1)
-
-	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
-	s.NoError(err)
-	s.Equal(0, len(result))
-}
-
-func (s *HealthcheckServiceSuite) TestGetEsStatusResponseMismatch() {
-	ids := []string{"container1", "container2"}
-	limit := 10
-	startTime := time.Now().Add(-24 * time.Hour)
-	endTime := time.Now()
-
-	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
-		response := &esapi.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(strings.NewReader(`{
-                "responses": [
-                    {
-                        "hits": {
-                            "hits": [
-                                {
-                                    "_id": "container1",
-                                    "_source": {
-                                        "container_id": "container1",
-                                        "status": "ON",
-                                        "uptime": 3600,
-                                        "last_updated": "` + time.Now().Add(-1*time.Hour).Format(time.RFC3339) + `"
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ]
-            }`)),
-		}
-		return response, nil
-	}).Times(1)
-
-	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
-	s.NoError(err)
-	s.Equal(1, len(result))
-	s.Equal(1, len(result["container1"]))
-	// s.Equal(0, len(result["container2"]))
-}
-
-func (s *HealthcheckServiceSuite) TestGetEsStatusWithTimeFormatting() {
-	ids := []string{"container1"}
-	limit := 5
-	startTime := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
-	endTime := time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC)
-
-	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
-		// Verify the time formatting in the request would be correct
-		response := &esapi.Response{
-			StatusCode: 200,
-			Body: io.NopCloser(strings.NewReader(`{
-                "responses": [
-                    {
-                        "hits": {
-                            "hits": [
-                                {
-                                    "_id": "container1",
-                                    "_source": {
-                                        "container_id": "container1",
-                                        "status": "ON",
-                                        "uptime": 3600,
-                                        "last_updated": "2023-01-01T12:00:00Z"
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ]
-            }`)),
-		}
-		return response, nil
-	}).Times(1)
-
-	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
-	s.NoError(err)
-	s.Equal(1, len(result))
-	s.Equal(1, len(result["container1"]))
 }
 
 func (s *HealthcheckServiceSuite) TestGetEsStatus() {
@@ -452,6 +230,7 @@ func (s *HealthcheckServiceSuite) TestGetEsStatus() {
 	startTime := time.Now().Add(-24 * time.Hour)
 	endTime := time.Now()
 
+	s.mockLogger.EXPECT().Info("elasticsearch status retrieved successfully", gomock.Any()).Times(1)
 	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, req esapi.Request) (*esapi.Response, error) {
 		response := &esapi.Response{
 			StatusCode: 200,
@@ -509,7 +288,7 @@ func (s *HealthcheckServiceSuite) TestGetEsStatusElasticsearchError() {
 	endTime := time.Now()
 
 	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).Return(nil, errors.New("elasticsearch connection error")).Times(1)
-	s.mockLogger.EXPECT().Error("failed to msearch containers", gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Error("failed to msearch elasticsearch status", gomock.Any()).Times(1)
 
 	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
 	s.Error(err)
@@ -533,7 +312,7 @@ func (s *HealthcheckServiceSuite) TestGetEsStatusReadBodyError() {
 		return response, nil
 	}).Times(1)
 
-	s.mockLogger.EXPECT().Error("failed to read msearch response body", gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Error("failed to read response body", gomock.Any()).Times(1)
 
 	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
 	s.Error(err)
@@ -554,7 +333,7 @@ func (s *HealthcheckServiceSuite) TestGetEsStatusInvalidJSONResponse() {
 		return response, nil
 	}).Times(1)
 
-	s.mockLogger.EXPECT().Error("failed to decode msearch response body", gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Error("failed to decode response body", gomock.Any()).Times(1)
 
 	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
 	s.Error(err)

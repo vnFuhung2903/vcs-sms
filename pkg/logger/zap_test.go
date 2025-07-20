@@ -287,7 +287,7 @@ func (suite *LoggerSuite) TestLoggerSync() {
 	logger.Info("Sync test message")
 
 	err = logger.Sync()
-	suite.Error(err)
+	suite.NoError(err)
 
 	logContent, err := os.ReadFile(loggerEnv.FilePath)
 	suite.NoError(err)

@@ -10,7 +10,7 @@ type Container struct {
 	CreatedAt     time.Time       `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time       `gorm:"autoUpdateTime"`
 	ContainerName string          `gorm:"unique;not null"`
-	Ipv4          string          `gorm:"unique;not null"`
+	Ipv4          string          `gorm:"not null"`
 }
 
 type ContainerStatus string

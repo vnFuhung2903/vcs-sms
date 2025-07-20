@@ -8,26 +8,26 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type ViperTestSuite struct {
+type ViperSuite struct {
 	suite.Suite
 	tempDir string
 }
 
-func (suite *ViperTestSuite) SetupSuite() {
+func (suite *ViperSuite) SetupSuite() {
 	tempDir, err := os.MkdirTemp("", "viper_test")
 	suite.Require().NoError(err)
 	suite.tempDir = tempDir
 }
 
-func (suite *ViperTestSuite) TearDownSuite() {
+func (suite *ViperSuite) TearDownSuite() {
 	os.RemoveAll(suite.tempDir)
 }
 
-func TestViperTestSuite(t *testing.T) {
-	suite.Run(t, new(ViperTestSuite))
+func TestViperSuite(t *testing.T) {
+	suite.Run(t, new(ViperSuite))
 }
 
-func (suite *ViperTestSuite) SetupTest() {
+func (suite *ViperSuite) SetupTest() {
 	envVars := []string{
 		"JWT_SECRET_KEY",
 		"MAIL_USERNAME",
@@ -47,14 +47,14 @@ func (suite *ViperTestSuite) SetupTest() {
 	}
 }
 
-func (suite *ViperTestSuite) createEnvFile(content string) string {
+func (suite *ViperSuite) createEnvFile(content string) string {
 	envFile := filepath.Join(suite.tempDir, ".env")
 	err := os.WriteFile(envFile, []byte(content), 0644)
 	suite.Require().NoError(err)
 	return envFile
 }
 
-func (suite *ViperTestSuite) TestLoadEnv() {
+func (suite *ViperSuite) TestLoadEnv() {
 	envContent := `ELASTICSEARCH_ADDRESS=elasticsearch_address
 JWT_SECRET_KEY=test_jwt_secret
 MAIL_USERNAME=test@example.com
@@ -102,7 +102,7 @@ ZAP_MAXBACKUPS=5`
 	suite.Equal(5, env.LoggerEnv.MaxBackups)
 }
 
-func (suite *ViperTestSuite) TestLoadEnvPartialConfig() {
+func (suite *ViperSuite) TestLoadEnvPartialConfig() {
 	envContent := `JWT_SECRET_KEY=partial_secret
 POSTGRES_USER=partial_user
 MAIL_USERNAME=test@example.com
@@ -125,7 +125,7 @@ MAIL_PASSWORD=test_password`
 	suite.Equal("partial_user", env.PostgresEnv.PostgresUser)
 }
 
-func (suite *ViperTestSuite) TestLoadEnvConfigFileNotFound() {
+func (suite *ViperSuite) TestLoadEnvConfigFileNotFound() {
 	nonExistentPath := "/path/that/does/not/exist"
 	env, err := LoadEnv(nonExistentPath)
 	suite.Error(err)
@@ -133,7 +133,7 @@ func (suite *ViperTestSuite) TestLoadEnvConfigFileNotFound() {
 	suite.Contains(err.Error(), "Config File \".env\" Not Found")
 }
 
-func (suite *ViperTestSuite) TestLoadEnvInvalidConfigPath() {
+func (suite *ViperSuite) TestLoadEnvInvalidConfigPath() {
 	invalidPath := filepath.Join(suite.tempDir, "not_a_directory.txt")
 	err := os.WriteFile(invalidPath, []byte("content"), 0644)
 	suite.Require().NoError(err)
@@ -143,7 +143,7 @@ func (suite *ViperTestSuite) TestLoadEnvInvalidConfigPath() {
 	suite.Nil(env)
 }
 
-func (suite *ViperTestSuite) TestLoadEnvEmptyConfig() {
+func (suite *ViperSuite) TestLoadEnvEmptyConfig() {
 	suite.createEnvFile("")
 
 	env, err := LoadEnv(suite.tempDir)
@@ -151,7 +151,7 @@ func (suite *ViperTestSuite) TestLoadEnvEmptyConfig() {
 	suite.Nil(env)
 }
 
-func (suite *ViperTestSuite) TestLoadEnvEmptyGomailValues() {
+func (suite *ViperSuite) TestLoadEnvEmptyGomailValues() {
 	envContent := `JWT_SECRET_KEY=test_jwt_secret
 MAIL_USERNAME=
 MAIL_PASSWORD=`
@@ -163,7 +163,7 @@ MAIL_PASSWORD=`
 	suite.Nil(env)
 }
 
-func (suite *ViperTestSuite) TestLoadEnvInvalidLoggerValues() {
+func (suite *ViperSuite) TestLoadEnvInvalidLoggerValues() {
 	envContent := `JWT_SECRET_KEY=test_jwt_secret
 ZAP_MAXSIZE=invalid_number
 ZAP_MAXAGE=also_invalid
@@ -178,7 +178,7 @@ MAIL_PASSWORD=test_password`
 	suite.Nil(env)
 }
 
-func (suite *ViperTestSuite) TestLoadEnvEmptyPostgresValues() {
+func (suite *ViperSuite) TestLoadEnvEmptyPostgresValues() {
 	envContent := `JWT_SECRET_KEY=test_jwt_secret
 POSTGRES_HOST=
 POSTGRES_USER=
@@ -194,7 +194,7 @@ MAIL_PASSWORD=test_password`
 	suite.Nil(env)
 }
 
-func (suite *ViperTestSuite) TestLoadEnvInvalidRedisValues() {
+func (suite *ViperSuite) TestLoadEnvInvalidRedisValues() {
 	envContent := `JWT_SECRET_KEY=test_jwt_secret
 REDIS_ADDRESS=
 REDIS_DB=not_a_number
@@ -208,7 +208,7 @@ MAIL_PASSWORD=test_password`
 	suite.Nil(env)
 }
 
-func (suite *ViperTestSuite) TestLoadEnvEmptyElasticsearchValues() {
+func (suite *ViperSuite) TestLoadEnvEmptyElasticsearchValues() {
 	envContent := `JWT_SECRET_KEY=test_jwt_secret
 ELASTICSEARCH_ADDRESS=
 MAIL_USERNAME=test@example.com

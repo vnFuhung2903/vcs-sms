@@ -9,13 +9,13 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/entities"
 )
 
-type DockerClientTestSuite struct {
+type DockerClientSuite struct {
 	suite.Suite
 	client IDockerClient
 	ctx    context.Context
 }
 
-func (suite *DockerClientTestSuite) SetupTest() {
+func (suite *DockerClientSuite) SetupTest() {
 	suite.ctx = context.Background()
 
 	client, err := NewDockerClient()
@@ -23,11 +23,11 @@ func (suite *DockerClientTestSuite) SetupTest() {
 	suite.NoError(err)
 }
 
-func TestDockerClientTestSuite(t *testing.T) {
-	suite.Run(t, new(DockerClientTestSuite))
+func TestDockerClientSuite(t *testing.T) {
+	suite.Run(t, new(DockerClientSuite))
 }
 
-func (suite *DockerClientTestSuite) TestContainerOnLifeCycle() {
+func (suite *DockerClientSuite) TestContainerOnLifeCycle() {
 	con, err := suite.client.Create(suite.ctx, "test-container", "nginx:stable-alpine-perl")
 	suite.NoError(err)
 
@@ -46,7 +46,7 @@ func (suite *DockerClientTestSuite) TestContainerOnLifeCycle() {
 	suite.NoError(err)
 }
 
-func (suite *DockerClientTestSuite) TestContainerOffLifeCycle() {
+func (suite *DockerClientSuite) TestContainerOffLifeCycle() {
 	con, err := suite.client.Create(suite.ctx, "test-container", "nginx:stable-alpine-perl")
 	suite.NoError(err)
 
@@ -59,39 +59,39 @@ func (suite *DockerClientTestSuite) TestContainerOffLifeCycle() {
 	suite.NoError(err)
 }
 
-func (suite *DockerClientTestSuite) TestPullImageInvalidImage() {
+func (suite *DockerClientSuite) TestPullImageInvalidImage() {
 	dockerClient := suite.client.(*DockerClient)
 	err := dockerClient.PullImage(suite.ctx, "invalid/non-existent-image:invalid-tag")
 	suite.Error(err)
 	suite.Contains(strings.ToLower(err.Error()), "failed to pull image")
 }
 
-func (suite *DockerClientTestSuite) TestCreateContainerInvalidImage() {
+func (suite *DockerClientSuite) TestCreateContainerInvalidImage() {
 	_, err := suite.client.Create(suite.ctx, "test-container", "invalid/non-existent-image")
 	suite.Error(err)
 }
 
-func (suite *DockerClientTestSuite) TestGetStatusNonExistentContainer() {
+func (suite *DockerClientSuite) TestGetStatusNonExistentContainer() {
 	status := suite.client.GetStatus(suite.ctx, "non-existent-container-id")
 	suite.Equal(entities.ContainerOff, status)
 }
 
-func (suite *DockerClientTestSuite) TestGetIpv4NonExistentContainer() {
+func (suite *DockerClientSuite) TestGetIpv4NonExistentContainer() {
 	ipv4 := suite.client.GetIpv4(suite.ctx, "non-existent-container-id")
 	suite.Equal("", ipv4)
 }
 
-func (suite *DockerClientTestSuite) TestStartNonExistentContainer() {
+func (suite *DockerClientSuite) TestStartNonExistentContainer() {
 	err := suite.client.Start(suite.ctx, "non-existent-container-id")
 	suite.Error(err)
 }
 
-func (suite *DockerClientTestSuite) TestStopNonExistentContainer() {
+func (suite *DockerClientSuite) TestStopNonExistentContainer() {
 	err := suite.client.Stop(suite.ctx, "non-existent-container-id")
 	suite.Error(err)
 }
 
-func (suite *DockerClientTestSuite) TestDeleteNonExistentContainer() {
+func (suite *DockerClientSuite) TestDeleteNonExistentContainer() {
 	err := suite.client.Delete(suite.ctx, "non-existent-container-id")
 	suite.T().Logf("Delete non-existent container result: %v", err)
 }

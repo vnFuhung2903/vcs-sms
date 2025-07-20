@@ -15,7 +15,7 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/pkg/env"
 )
 
-type ReportServiceTestSuite struct {
+type ReportServiceSuite struct {
 	suite.Suite
 	ctrl          *gomock.Controller
 	reportService IReportService
@@ -24,7 +24,7 @@ type ReportServiceTestSuite struct {
 	sampleReport  *dto.ReportResponse
 }
 
-func (s *ReportServiceTestSuite) SetupTest() {
+func (s *ReportServiceSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.logger = logger.NewMockILogger(s.ctrl)
 
@@ -43,7 +43,6 @@ func (s *ReportServiceTestSuite) SetupTest() {
 		EndTime:           time.Now(),
 	}
 
-	// Create test HTML template file
 	err := os.MkdirAll("html", 0755)
 	if err != nil {
 		s.T().Fatal("Failed to create html directory:", err)
@@ -68,16 +67,16 @@ func (s *ReportServiceTestSuite) SetupTest() {
 	}
 }
 
-func (s *ReportServiceTestSuite) TearDownTest() {
+func (s *ReportServiceSuite) TearDownTest() {
 	os.RemoveAll("html")
 	s.ctrl.Finish()
 }
 
-func TestReportService(t *testing.T) {
-	suite.Run(t, new(ReportServiceTestSuite))
+func TestReportServiceSuite(t *testing.T) {
+	suite.Run(t, new(ReportServiceSuite))
 }
 
-func (s *ReportServiceTestSuite) TestSendEmail() {
+func (s *ReportServiceSuite) TestSendEmail() {
 	s.reportService = NewReportService(s.logger, env.GomailEnv{
 		MailUsername: "hung29032004@gmail.com",
 		MailPassword: "ltqisrdmlbbnhwzn",
@@ -87,20 +86,20 @@ func (s *ReportServiceTestSuite) TestSendEmail() {
 	s.Nil(err)
 }
 
-func (s *ReportServiceTestSuite) TestSendEmailError() {
+func (s *ReportServiceSuite) TestSendEmailError() {
 	s.logger.EXPECT().Error("failed to send email", gomock.Any()).Times(1)
 	err := s.reportService.SendEmail(s.ctx, "recipient@example.com", 10, 7, 3, 24.5, s.sampleReport.StartTime, s.sampleReport.EndTime)
 	s.Error(err)
 }
 
-func (s *ReportServiceTestSuite) TestSendEmailTemplateNotFound() {
+func (s *ReportServiceSuite) TestSendEmailTemplateNotFound() {
 	os.Remove("html/email.html")
 	s.logger.EXPECT().Error("failed to read email template", gomock.Any()).Times(1)
 	err := s.reportService.SendEmail(s.ctx, "recipient@example.com", 10, 7, 3, 24.5, s.sampleReport.StartTime, s.sampleReport.EndTime)
 	s.Error(err)
 }
 
-func (s *ReportServiceTestSuite) TestSendEmailInvalidTemplate() {
+func (s *ReportServiceSuite) TestSendEmailInvalidTemplate() {
 	invalidTemplate := `{{invalid template syntax`
 	err := os.WriteFile("html/email.html", []byte(invalidTemplate), 0644)
 	s.NoError(err)
@@ -110,7 +109,7 @@ func (s *ReportServiceTestSuite) TestSendEmailInvalidTemplate() {
 	s.Error(err)
 }
 
-func (s *ReportServiceTestSuite) TestSendEmailTemplateExecutionError() {
+func (s *ReportServiceSuite) TestSendEmailTemplateExecutionError() {
 	invalidTemplate := `<html><body>{{.NonExistentField}}</body></html>`
 	err := os.WriteFile("html/email.html", []byte(invalidTemplate), 0644)
 	s.NoError(err)
@@ -120,7 +119,7 @@ func (s *ReportServiceTestSuite) TestSendEmailTemplateExecutionError() {
 	s.Error(err)
 }
 
-func (s *ReportServiceTestSuite) TestCalculateReportStatistic() {
+func (s *ReportServiceSuite) TestCalculateReportStatistic() {
 	containers := []*entities.Container{
 		{ContainerId: "container1", Status: entities.ContainerOn},
 		{ContainerId: "container2", Status: entities.ContainerOff},
@@ -129,63 +128,19 @@ func (s *ReportServiceTestSuite) TestCalculateReportStatistic() {
 
 	statusList := map[string][]dto.EsStatus{
 		"container1": {
-			{ContainerId: "container1", Status: entities.ContainerOn, LastUpdated: time.Now().Add(-2 * time.Hour)},
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600)},
 		},
 		"container2": {
-			{ContainerId: "container2", Status: entities.ContainerOff, LastUpdated: time.Now().Add(-1 * time.Hour)},
+			{ContainerId: "container2", Status: entities.ContainerOff, Uptime: int64(7200)},
 		},
 		"container3": {
-			{ContainerId: "container3", Status: entities.ContainerOn, LastUpdated: time.Now().Add(-3 * time.Hour)},
+			{ContainerId: "container3", Status: entities.ContainerOn, Uptime: int64(1800)},
 		},
 	}
 
-	startTime := time.Now().Add(-24 * time.Hour)
-	endTime := time.Now()
+	onCount, offCount, totalUptime := s.reportService.CalculateReportStatistic(containers, statusList)
 
-	onCount, offCount, totalUptime, err := s.reportService.CalculateReportStatistic(containers, statusList, startTime, endTime)
-
-	s.NoError(err)
 	s.Equal(2, onCount)
 	s.Equal(1, offCount)
-	s.Greater(totalUptime, 0.0)
-}
-
-func (s *ReportServiceTestSuite) TestCalculateReportStatisticInvalidDateRange() {
-	containers := []*entities.Container{}
-	statusList := map[string][]dto.EsStatus{}
-
-	startTime := time.Now()
-	endTime := time.Now().Add(-24 * time.Hour)
-
-	s.logger.EXPECT().Error("failed to calculate report statistic", gomock.Any()).Times(1)
-
-	onCount, offCount, totalUptime, err := s.reportService.CalculateReportStatistic(containers, statusList, startTime, endTime)
-
-	s.Error(err)
-	s.Contains(err.Error(), "invalid date range")
-	s.Equal(0, onCount)
-	s.Equal(0, offCount)
-	s.Equal(0.0, totalUptime)
-}
-
-func (s *ReportServiceTestSuite) TestCalculateReportStatisticFutureEndTime() {
-	containers := []*entities.Container{
-		{ContainerId: "container1", Status: entities.ContainerOn},
-	}
-
-	statusList := map[string][]dto.EsStatus{
-		"container1": {
-			{ContainerId: "container1", Status: entities.ContainerOn, LastUpdated: time.Now().Add(-1 * time.Hour)},
-		},
-	}
-
-	startTime := time.Now().Add(-24 * time.Hour)
-	endTime := time.Now().Add(24 * time.Hour)
-
-	onCount, offCount, totalUptime, err := s.reportService.CalculateReportStatistic(containers, statusList, startTime, endTime)
-
-	s.NoError(err)
-	s.Equal(1, onCount)
-	s.Equal(0, offCount)
-	s.Greater(totalUptime, 0.0)
+	s.Equal(1.5, totalUptime)
 }

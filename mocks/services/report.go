@@ -38,20 +38,19 @@ func (m *MockIReportService) EXPECT() *MockIReportServiceMockRecorder {
 }
 
 // CalculateReportStatistic mocks base method.
-func (m *MockIReportService) CalculateReportStatistic(data []*entities.Container, statusList map[string][]dto.EsStatus, startTime, endTime time.Time) (int, int, float64, error) {
+func (m *MockIReportService) CalculateReportStatistic(data []*entities.Container, statusList map[string][]dto.EsStatus) (int, int, float64) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CalculateReportStatistic", data, statusList, startTime, endTime)
+	ret := m.ctrl.Call(m, "CalculateReportStatistic", data, statusList)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(float64)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	return ret0, ret1, ret2
 }
 
 // CalculateReportStatistic indicates an expected call of CalculateReportStatistic.
-func (mr *MockIReportServiceMockRecorder) CalculateReportStatistic(data, statusList, startTime, endTime interface{}) *gomock.Call {
+func (mr *MockIReportServiceMockRecorder) CalculateReportStatistic(data, statusList interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculateReportStatistic", reflect.TypeOf((*MockIReportService)(nil).CalculateReportStatistic), data, statusList, startTime, endTime)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculateReportStatistic", reflect.TypeOf((*MockIReportService)(nil).CalculateReportStatistic), data, statusList)
 }
 
 // SendEmail mocks base method.

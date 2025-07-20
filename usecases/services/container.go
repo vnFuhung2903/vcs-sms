@@ -149,6 +149,18 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*dt
 	result := &dto.ImportResponse{}
 	for i, row := range rows {
 		if i == 0 {
+			if len(row) < 2 {
+				err := errors.New("invalid header row")
+				s.logger.Error("failed to import containers", zap.Error(err))
+				return nil, err
+			}
+			containerName := strings.TrimSpace(row[0])
+			imageName := strings.TrimSpace(row[1])
+			if containerName != "Container Name" || imageName != "Image Name" {
+				err := errors.New("invalid header row")
+				s.logger.Error("failed to import containers", zap.Error(err))
+				return nil, err
+			}
 			continue
 		}
 		if len(row) < 2 {
@@ -184,7 +196,7 @@ func (s *ContainerService) Export(ctx context.Context, filter dto.ContainerFilte
 		s.logger.Error("failed to export containers", zap.Error(err))
 		return nil, err
 	}
-	limit := max(to-from+1, 1)
+	limit := max(to-from+1, -1)
 
 	containers, _, err := s.containerRepo.View(filter, from, limit, sort)
 	if err != nil {

@@ -135,7 +135,7 @@ func (s *ContainerHandlerSuite) TestView() {
 		View(gomock.Any(), gomock.Any(), 1, 10, gomock.Any()).
 		Return(containers, int64(2), nil)
 
-	req := httptest.NewRequest("GET", "/containers/view?from=1&to=10", nil)
+	req := httptest.NewRequest("GET", "/containers/view?from=1&to=10&field=container_id&order=desc", nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
@@ -210,7 +210,7 @@ func (s *ContainerHandlerSuite) TestViewServiceError() {
 		View(gomock.Any(), gomock.Any(), 1, 10, gomock.Any()).
 		Return([]*entities.Container{}, int64(0), errors.New("database error"))
 
-	req := httptest.NewRequest("GET", "/containers/view?from=1&to=10", nil)
+	req := httptest.NewRequest("GET", "/containers/view?from=1&to=10&field=container_id&order=desc", nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
@@ -319,7 +319,7 @@ func (s *ContainerHandlerSuite) TestExport() {
 		Export(gomock.Any(), gomock.Any(), 1, -1, gomock.Any()).
 		Return(csvData, nil)
 
-	req := httptest.NewRequest("GET", "/containers/export", nil)
+	req := httptest.NewRequest("GET", "/containers/export?field=container_id&order=desc", nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
@@ -363,7 +363,7 @@ func (s *ContainerHandlerSuite) TestExportServiceError() {
 		Export(gomock.Any(), gomock.Any(), 1, -1, gomock.Any()).
 		Return([]byte{}, errors.New("export failed"))
 
-	req := httptest.NewRequest("GET", "/containers/export", nil)
+	req := httptest.NewRequest("GET", "/containers/export?field=container_id&order=desc", nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
