@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/dto"
@@ -44,6 +45,10 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 			Error: err.Error(),
 		})
 		return
+	}
+
+	if req.EndTime.IsZero() {
+		req.EndTime = time.Now()
 	}
 
 	if req.StartTime.After(req.EndTime) {

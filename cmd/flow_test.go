@@ -238,12 +238,6 @@ func TestEmailReport(t *testing.T) {
 	defer resp.Body.Close()
 }
 
-func TestHealthcheckUpdate(t *testing.T) {
-	resp, err := makeRequest("POST", "/healthcheck/update", nil, true, "")
-	printResponse("HealthCheck", resp, err)
-	defer resp.Body.Close()
-}
-
 func TestUpdateUserPassword(t *testing.T) {
 	payload := map[string]interface{}{
 		"password": "newpassword123",
@@ -310,10 +304,6 @@ func TestMain(t *testing.T) {
 
 	// t.Run("ExportContainers", func(t *testing.T) {
 	// 	TestExportContainers(t)
-	// })
-
-	// t.Run("HealthcheckUpdate", func(t *testing.T) {
-	// 	TestHealthcheckUpdate(t)
 	// })
 
 	t.Run("EmailReport", func(t *testing.T) {

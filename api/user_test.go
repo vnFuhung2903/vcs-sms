@@ -81,7 +81,7 @@ func (s *UserHandlerSuite) TestRegister() {
 		Username: "testuser",
 		Password: "password123",
 		Email:    "test@example.com",
-		Role:     string(entities.Developer),
+		Role:     entities.Developer,
 	}
 	jsonData, _ := json.Marshal(reqBody)
 
@@ -118,7 +118,7 @@ func (s *UserHandlerSuite) TestRegisterServiceError() {
 		Username: "testuser",
 		Password: "password123",
 		Email:    "test@example.com",
-		Role:     string(entities.Developer),
+		Role:     entities.Developer,
 	}
 	jsonData, _ := json.Marshal(reqBody)
 
@@ -158,7 +158,7 @@ func (s *UserHandlerSuite) TestRegisterJWTGenerationError() {
 		Username: "testuser",
 		Password: "password123",
 		Email:    "test@example.com",
-		Role:     string(entities.Developer),
+		Role:     entities.Developer,
 	}
 	jsonData, _ := json.Marshal(reqBody)
 
@@ -289,9 +289,7 @@ func (s *UserHandlerSuite) TestUpdatePassword() {
 		UpdatePassword("test-user-id", "newpassword").
 		Return(nil)
 
-	reqBody := struct {
-		Password string `json:"password"`
-	}{
+	reqBody := dto.UpdatePasswordRequest{
 		Password: "newpassword",
 	}
 	jsonData, _ := json.Marshal(reqBody)
@@ -387,10 +385,8 @@ func (s *UserHandlerSuite) TestUpdateRoleServiceError() {
 		UpdateRole("test-user-id", entities.Manager).
 		Return(errors.New("role update failed"))
 
-	reqBody := struct {
-		Role string `json:"role"`
-	}{
-		Role: string(entities.Manager),
+	reqBody := dto.UpdateRoleRequest{
+		Role: entities.Manager,
 	}
 	jsonData, _ := json.Marshal(reqBody)
 
@@ -414,10 +410,7 @@ func (s *UserHandlerSuite) TestUpdateScope() {
 		UpdateScope("test-user-id", scopes, true).
 		Return(nil)
 
-	reqBody := struct {
-		IsAdded bool     `json:"isAdded"`
-		Scopes  []string `json:"scope"`
-	}{
+	reqBody := dto.UpdateScopeRequest{
 		IsAdded: true,
 		Scopes:  scopes,
 	}
@@ -453,10 +446,7 @@ func (s *UserHandlerSuite) TestUpdateScopeServiceError() {
 		UpdateScope("test-user-id", scopes, false).
 		Return(errors.New("scope update failed"))
 
-	reqBody := struct {
-		IsAdded bool     `json:"isAdded"`
-		Scopes  []string `json:"scope"`
-	}{
+	reqBody := dto.UpdateScopeRequest{
 		IsAdded: false,
 		Scopes:  scopes,
 	}

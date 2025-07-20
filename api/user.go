@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vnFuhung2903/vcs-sms/dto"
-	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/pkg/middlewares"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
 	"github.com/vnFuhung2903/vcs-sms/utils"
@@ -60,8 +59,8 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	scopes := utils.UserRoleToDefaultScopes(entities.UserRole(req.Role), nil)
-	user, err := h.userService.Register(req.Username, req.Password, req.Email, entities.UserRole(req.Role), utils.ScopesToHashMap(scopes))
+	scopes := utils.UserRoleToDefaultScopes(req.Role, nil)
+	user, err := h.userService.Register(req.Username, req.Password, req.Email, req.Role, utils.ScopesToHashMap(scopes))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
@@ -131,10 +130,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 // @Router /users/update/password/{id} [put]
 func (h *UserHandler) UpdatePassword(c *gin.Context) {
 	userId := c.GetString("userId")
-	var req struct {
-		Password string `json:"password"`
-	}
-
+	var req dto.UpdatePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),
@@ -167,10 +163,7 @@ func (h *UserHandler) UpdatePassword(c *gin.Context) {
 // @Router /users/update/role/{id} [put]
 func (h *UserHandler) UpdateRole(c *gin.Context) {
 	userId := c.GetString("userId")
-	var req struct {
-		Role string `json:"role"`
-	}
-
+	var req dto.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),
@@ -178,7 +171,7 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	if err := h.userService.UpdateRole(userId, entities.UserRole(req.Role)); err != nil {
+	if err := h.userService.UpdateRole(userId, req.Role); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
 		})
@@ -203,11 +196,7 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 // @Router /users/update/scope/{id} [put]
 func (h *UserHandler) UpdateScope(c *gin.Context) {
 	userId := c.GetString("userId")
-	var req struct {
-		IsAdded bool     `json:"isAdded"`
-		Scopes  []string `json:"scope"`
-	}
-
+	var req dto.UpdateScopeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: err.Error(),

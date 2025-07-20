@@ -5,8 +5,8 @@ import (
 )
 
 type CreateRequest struct {
-	ContainerName string `json:"container_name"`
-	ImageName     string `json:"image_name"`
+	ContainerName string `json:"container_name" binding:"required"`
+	ImageName     string `json:"image_name" binding:"required"`
 }
 
 type ViewResponse struct {
