@@ -9,9 +9,15 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/pkg/docker"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
 	"github.com/vnFuhung2903/vcs-sms/usecases/services"
+	"go.uber.org/zap"
 )
 
-type EsStatusWorker struct {
+type IHealthcheckWorker interface {
+	Start(numWorkers int)
+	Stop()
+}
+
+type HealthcheckWorker struct {
 	dockerClient       docker.IDockerClient
 	containerService   services.IContainerService
 	healthcheckService services.IHealthcheckService
@@ -22,25 +28,15 @@ type EsStatusWorker struct {
 	wg                 *sync.WaitGroup
 }
 
-func (w *EsStatusWorker) Start(numWorkers int) {
-	w.wg.Add(numWorkers)
-	go w.run()
-}
-
-func (w *EsStatusWorker) Stop() {
-	w.cancel()
-	w.wg.Wait()
-}
-
-func NewEsStatusWorker(
+func NewHealthcheckWorker(
 	dockerClient docker.IDockerClient,
 	containerService services.IContainerService,
 	healthcheckService services.IHealthcheckService,
 	logger logger.ILogger,
 	interval time.Duration,
-) *EsStatusWorker {
+) IHealthcheckWorker {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &EsStatusWorker{
+	return &HealthcheckWorker{
 		dockerClient:       dockerClient,
 		healthcheckService: healthcheckService,
 		containerService:   containerService,
@@ -52,12 +48,21 @@ func NewEsStatusWorker(
 	}
 }
 
-func (w *EsStatusWorker) run() {
+func (w *HealthcheckWorker) Start(numWorkers int) {
+	w.wg.Add(numWorkers)
+	go w.run()
+}
+
+func (w *HealthcheckWorker) Stop() {
+	w.cancel()
+	w.wg.Wait()
+}
+
+func (w *HealthcheckWorker) run() {
 	defer w.wg.Done()
 
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
-	var statusList []dto.EsStatusUpdate
 
 	for {
 		select {
@@ -65,22 +70,28 @@ func (w *EsStatusWorker) run() {
 			w.logger.Info("elasticsearch status workers stopped")
 			return
 		case <-ticker.C:
-			w.updateEsStatus(statusList)
+			w.updateHealthcheck()
 		}
 	}
 }
 
-func (w *EsStatusWorker) updateEsStatus(statusList []dto.EsStatusUpdate) {
-	containers, _, err := w.containerService.View(w.ctx, dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "created_at", Order: "desc"})
+func (w *HealthcheckWorker) updateHealthcheck() {
+	containers, total, err := w.containerService.View(w.ctx, dto.ContainerFilter{}, 1, -1, dto.ContainerSort{
+		Field: "updated_at", Order: "desc",
+	})
 	if err != nil {
+		w.logger.Error("failed to view containers", zap.Error(err))
 		return
 	}
 
-	statusList = make([]dto.EsStatusUpdate, 0, len(containers))
+	statusList := make([]dto.EsStatusUpdate, 0, total)
+
 	for _, container := range containers {
 		status := w.dockerClient.GetStatus(w.ctx, container.ContainerId)
 		if status != container.Status {
-			w.containerService.Update(w.ctx, container.ContainerId, dto.ContainerUpdate{Status: status})
+			if err := w.containerService.Update(w.ctx, container.ContainerId, dto.ContainerUpdate{Status: status}); err != nil {
+				w.logger.Error("failed to update container", zap.String("container_id", container.ContainerId))
+			}
 		}
 		statusList = append(statusList, dto.EsStatusUpdate{
 			ContainerId: container.ContainerId,
@@ -88,8 +99,8 @@ func (w *EsStatusWorker) updateEsStatus(statusList []dto.EsStatusUpdate) {
 		})
 	}
 
-	err = w.healthcheckService.UpdateStatus(w.ctx, statusList)
-	if err != nil {
+	if err := w.healthcheckService.UpdateStatus(w.ctx, statusList); err != nil {
+		w.logger.Error("failed to update elasticsearch status", zap.Error(err))
 		return
 	}
 	w.logger.Info("elasticsearch status updated successfully")

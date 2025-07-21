@@ -65,7 +65,7 @@ func main() {
 	reportHandler := api.NewReportHandler(containerService, healthcheckService, reportService, jwtMiddleware)
 	userHandler := api.NewUserHandler(userService, jwtMiddleware)
 
-	esWorker := workers.NewEsStatusWorker(
+	esWorker := workers.NewHealthcheckWorker(
 		dockerClient,
 		containerService,
 		healthcheckService,

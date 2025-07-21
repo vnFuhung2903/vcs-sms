@@ -36,11 +36,10 @@ func (s *UserHandlerSuite) SetupTest() {
 	s.mockJWTMiddleware = middlewares.NewMockIJWTMiddleware(s.ctrl)
 	s.ctx = context.Background()
 
-	// Mock the RequireScope function to return a no-op middleware
 	s.mockJWTMiddleware.EXPECT().
 		RequireScope(gomock.Any()).
 		Return(func(c *gin.Context) {
-			c.Set("userId", "test-user-id") // Set userId for authenticated routes
+			c.Set("userId", "test-user-id")
 			c.Next()
 		}).
 		AnyTimes()

@@ -66,13 +66,13 @@ func (s *ReportHandlerSuite) TestSendEmail() {
 	endTime := time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC)
 
 	containers := []*entities.Container{
-		{ContainerId: "container1", ContainerName: "test1", Status: "running"},
-		{ContainerId: "container2", ContainerName: "test2", Status: "stopped"},
+		{ContainerId: "container1", ContainerName: "test1", Status: entities.ContainerOn},
+		{ContainerId: "container2", ContainerName: "test2", Status: entities.ContainerOff},
 	}
 
 	esResults := map[string][]dto.EsStatus{
-		"container1": {{ContainerId: "container1", Status: "running"}},
-		"container2": {{ContainerId: "container2", Status: "stopped"}},
+		"container1": {{ContainerId: "container1", Status: entities.ContainerOn}},
+		"container2": {{ContainerId: "container2", Status: entities.ContainerOff}},
 	}
 
 	s.mockContainerService.EXPECT().
@@ -150,7 +150,7 @@ func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceError() {
 	endTime := time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC)
 
 	containers := []*entities.Container{
-		{ContainerId: "container1", ContainerName: "test1", Status: "running"},
+		{ContainerId: "container1", ContainerName: "test1", Status: entities.ContainerOn},
 	}
 
 	s.mockContainerService.EXPECT().
@@ -179,11 +179,11 @@ func (s *ReportHandlerSuite) TestSendEmailSendEmailServiceError() {
 	endTime := time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC)
 
 	containers := []*entities.Container{
-		{ContainerId: "container1", ContainerName: "test1", Status: "running"},
+		{ContainerId: "container1", ContainerName: "test1", Status: entities.ContainerOn},
 	}
 
 	esResults := map[string][]dto.EsStatus{
-		"container1": {{ContainerId: "container1", Status: "running"}},
+		"container1": {{ContainerId: "container1", Status: entities.ContainerOn}},
 	}
 
 	s.mockContainerService.EXPECT().

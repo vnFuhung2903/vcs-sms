@@ -127,8 +127,8 @@ func (s *ContainerHandlerSuite) TestCreateServiceError() {
 
 func (s *ContainerHandlerSuite) TestView() {
 	containers := []*entities.Container{
-		{ContainerId: "1", ContainerName: "container1", Status: "running"},
-		{ContainerId: "2", ContainerName: "container2", Status: "stopped"},
+		{ContainerId: "1", ContainerName: "container1", Status: entities.ContainerOn},
+		{ContainerId: "2", ContainerName: "container2", Status: entities.ContainerOff},
 	}
 
 	s.mockContainerService.EXPECT().
