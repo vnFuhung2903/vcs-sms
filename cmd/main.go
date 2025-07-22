@@ -70,7 +70,7 @@ func main() {
 		containerService,
 		healthcheckService,
 		logger,
-		30*time.Second,
+		10*time.Second,
 	)
 	esWorker.Start(1)
 
@@ -84,7 +84,7 @@ func main() {
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 		<-quit
 
-		logger.Info("Shutting down gracefully...")
+		logger.Info("Shutting down...")
 		esWorker.Stop()
 		os.Exit(0)
 	}()

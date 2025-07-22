@@ -298,13 +298,13 @@ func TestMain(t *testing.T) {
 	// 	TestUpdateContainer(t)
 	// })
 
-	// t.Run("ImportContainers", func(t *testing.T) {
-	// 	TestImportContainers(t)
-	// })
+	t.Run("ImportContainers", func(t *testing.T) {
+		TestImportContainers(t)
+	})
 
-	// t.Run("ExportContainers", func(t *testing.T) {
-	// 	TestExportContainers(t)
-	// })
+	t.Run("ExportContainers", func(t *testing.T) {
+		TestExportContainers(t)
+	})
 
 	t.Run("EmailReport", func(t *testing.T) {
 		TestEmailReport(t)
