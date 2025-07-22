@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containerd/errdefs"
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/pkg/docker"
@@ -44,12 +45,12 @@ func NewContainerService(repo repositories.IContainerRepository, dockerClient do
 func (s *ContainerService) Create(ctx context.Context, containerName string, imageName string) (*entities.Container, error) {
 	con, err := s.dockerClient.Create(ctx, containerName, imageName)
 	if err != nil {
-		s.logger.Error("failed to create container", zap.Error(err))
+		s.logger.Error("failed to create docker container", zap.Error(err))
 		return nil, err
 	}
 
 	if err := s.dockerClient.Start(ctx, con.ID); err != nil {
-		s.logger.Error("failed to start container", zap.Error(err))
+		s.logger.Error("failed to start docker container", zap.Error(err))
 	}
 
 	status := s.dockerClient.GetStatus(ctx, con.ID)
@@ -58,8 +59,12 @@ func (s *ContainerService) Create(ctx context.Context, containerName string, ima
 	container, err := s.containerRepo.Create(con.ID, containerName, status, ipv4)
 	if err != nil {
 		s.logger.Error("failed to create container", zap.Error(err))
+		if err := s.dockerClient.Stop(ctx, con.ID); err != nil {
+			s.logger.Error("failed to stop docker container", zap.Error(err))
+			return nil, err
+		}
 		if err := s.dockerClient.Delete(ctx, con.ID); err != nil {
-			s.logger.Error("failed to delete container", zap.Error(err))
+			s.logger.Error("failed to delete docker container", zap.Error(err))
 			return nil, err
 		}
 		return nil, err
@@ -94,17 +99,20 @@ func (s *ContainerService) Update(ctx context.Context, containerId string, updat
 
 	if updateData.Status == entities.ContainerOn {
 		if err := s.dockerClient.Start(ctx, containerId); err != nil {
-			s.logger.Error("failed to start container", zap.Error(err))
+			s.logger.Error("failed to start docker container", zap.Error(err))
 			return err
 		}
 	} else {
 		if err := s.dockerClient.Stop(ctx, containerId); err != nil {
-			s.logger.Error("failed to stop container", zap.Error(err))
+			s.logger.Error("failed to stop docker container", zap.Error(err))
 			return err
 		}
 	}
 
-	if err := s.containerRepo.Update(containerId, updateData); err != nil {
+	status := s.dockerClient.GetStatus(ctx, containerId)
+	ipv4 := s.dockerClient.GetIpv4(ctx, containerId)
+
+	if err := s.containerRepo.Update(containerId, status, ipv4); err != nil {
 		s.logger.Error("failed to update container", zap.Error(err))
 		return err
 	}
@@ -113,13 +121,13 @@ func (s *ContainerService) Update(ctx context.Context, containerId string, updat
 }
 
 func (s *ContainerService) Delete(ctx context.Context, containerId string) error {
-	if err := s.dockerClient.Stop(ctx, containerId); err != nil {
-		s.logger.Error("failed to start container", zap.Error(err))
+	if err := s.dockerClient.Stop(ctx, containerId); err != nil && !errdefs.IsNotFound(err) {
+		s.logger.Error("failed to stop docker container", zap.Error(err))
 		return err
 	}
 
-	if err := s.dockerClient.Delete(ctx, containerId); err != nil {
-		s.logger.Error("failed to start container", zap.Error(err))
+	if err := s.dockerClient.Delete(ctx, containerId); err != nil && !errdefs.IsNotFound(err) {
+		s.logger.Error("failed to delete docker container", zap.Error(err))
 		return err
 	}
 
@@ -147,6 +155,7 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*dt
 	}
 
 	result := &dto.ImportResponse{}
+	containers := make([]*entities.Container, 0)
 	for i, row := range rows {
 		if i == 0 {
 			if len(row) < 2 {
@@ -177,16 +186,42 @@ func (s *ContainerService) Import(ctx context.Context, file multipart.File) (*dt
 			continue
 		}
 
-		_, err := s.Create(ctx, containerName, imageName)
+		con, err := s.dockerClient.Create(ctx, containerName, imageName)
 		if err != nil {
 			result.FailedCount++
 			result.FailedContainers = append(result.FailedContainers, containerName)
 			continue
 		}
-		result.SuccessCount++
-		result.SuccessContainers = append(result.SuccessContainers, containerName)
+
+		s.dockerClient.Start(ctx, con.ID)
+		status := s.dockerClient.GetStatus(ctx, con.ID)
+		ipv4 := s.dockerClient.GetIpv4(ctx, con.ID)
+
+		containers = append(containers, &entities.Container{
+			ContainerId:   con.ID,
+			ContainerName: containerName,
+			Status:        status,
+			Ipv4:          ipv4,
+		})
 	}
-	s.logger.Info("containers imported successfully")
+
+	if err := s.containerRepo.CreateInBatches(containers); err != nil {
+		result.FailedCount += len(containers)
+		for _, container := range containers {
+			result.FailedContainers = append(result.FailedContainers, container.ContainerName)
+			if err := s.dockerClient.Stop(ctx, container.ContainerId); err != nil {
+				s.logger.Error("failed to stop docker container", zap.String("container_id", container.ContainerId), zap.Error(err))
+			} else if err := s.dockerClient.Delete(ctx, container.ContainerId); err != nil {
+				s.logger.Error("failed to delete docker container", zap.String("container_id", container.ContainerId), zap.Error(err))
+			}
+		}
+	} else {
+		result.SuccessCount += len(containers)
+		for _, container := range containers {
+			result.SuccessContainers = append(result.SuccessContainers, container.ContainerName)
+		}
+		s.logger.Info("containers imported successfully")
+	}
 	return result, nil
 }
 

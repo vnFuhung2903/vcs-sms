@@ -17,8 +17,8 @@ type ReportResponse struct {
 	ContainerOnCount  int       `json:"container_on_count"`
 	ContainerOffCount int       `json:"container_off_count"`
 	TotalUptime       float64   `json:"total_uptime"`
-	StartTime         time.Time `form:"start_time"`
-	EndTime           time.Time `form:"end_time"`
+	StartTime         time.Time `json:"start_time"`
+	EndTime           time.Time `json:"end_time"`
 }
 
 type EsStatus struct {

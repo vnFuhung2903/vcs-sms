@@ -14,7 +14,8 @@ type IContainerRepository interface {
 	FindByName(containerName string) (*entities.Container, error)
 	View(filter dto.ContainerFilter, from int, limit int, sort dto.ContainerSort) ([]*entities.Container, int64, error)
 	Create(containerId string, containerName string, status entities.ContainerStatus, ipv4 string) (*entities.Container, error)
-	Update(containerId string, updateData dto.ContainerUpdate) error
+	CreateInBatches(containers []*entities.Container) error
+	Update(containerId string, status entities.ContainerStatus, ipv4 string) error
 	Delete(containerId string) error
 	BeginTransaction(ctx context.Context) (*gorm.DB, error)
 	WithTransaction(tx *gorm.DB) IContainerRepository
@@ -90,7 +91,16 @@ func (r *containerRepository) Create(containerId string, containerName string, s
 	return newContainer, nil
 }
 
-func (r *containerRepository) Update(containerId string, updateData dto.ContainerUpdate) error {
+func (r *containerRepository) CreateInBatches(containers []*entities.Container) error {
+	res := r.db.CreateInBatches(&containers, 10000)
+	return res.Error
+}
+
+func (r *containerRepository) Update(containerId string, status entities.ContainerStatus, ipv4 string) error {
+	updateData := map[string]interface{}{
+		"status": status,
+		"ipv4":   ipv4,
+	}
 	res := r.db.Model(&entities.Container{}).Where("container_id = ?", containerId).Updates(updateData)
 	return res.Error
 }

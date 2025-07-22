@@ -53,6 +53,18 @@ func (suite *ContainerRepoSuite) TestCreateDuplicateContainerName() {
 	assert.Error(suite.T(), err)
 }
 
+func (suite *ContainerRepoSuite) TestCreateInBatches() {
+	container1 := &entities.Container{ContainerId: "id1", ContainerName: "Name1", Status: entities.ContainerOn, Ipv4: "10.0.3.1"}
+	container2 := &entities.Container{ContainerId: "id2", ContainerName: "Name2", Status: entities.ContainerOff, Ipv4: ""}
+
+	containers := []*entities.Container{
+		container1,
+		container2,
+	}
+	err := suite.repo.CreateInBatches(containers)
+	assert.NoError(suite.T(), err)
+}
+
 func (suite *ContainerRepoSuite) TestCreateAndFindById() {
 	c, err := suite.repo.Create("cid-1", "Alpha", entities.ContainerOn, "10.0.0.1")
 	assert.NoError(suite.T(), err)
@@ -157,27 +169,19 @@ func (suite *ContainerRepoSuite) TestViewWhileDbClose() {
 }
 
 func (suite *ContainerRepoSuite) TestUpdate() {
-	_, _ = suite.repo.Create("cid-7", "Zeta", entities.ContainerOff, "10.0.0.7")
-	update := dto.ContainerUpdate{Status: entities.ContainerOn}
-	err := suite.repo.Update("cid-7", update)
+	_, _ = suite.repo.Create("cid-7", "Zeta", entities.ContainerOn, "10.0.0.7")
+	err := suite.repo.Update("cid-7", entities.ContainerOff, "")
 	assert.NoError(suite.T(), err)
 	found, _ := suite.repo.FindById("cid-7")
-	assert.Equal(suite.T(), entities.ContainerOn, found.Status)
+	assert.Equal(suite.T(), entities.ContainerOff, found.Status)
+	assert.Equal(suite.T(), "", found.Ipv4)
 	assert.Equal(suite.T(), "Zeta", found.ContainerName)
 }
 
 func (suite *ContainerRepoSuite) TestUpdateAndDeleteNonExistent() {
-	update := dto.ContainerUpdate{Status: entities.ContainerOn}
-	err := suite.repo.Update("not-exist", update)
+	err := suite.repo.Update("not-exist", entities.ContainerOff, "")
 	assert.NoError(suite.T(), err)
-
 	err = suite.repo.Delete("not-exist")
-	assert.NoError(suite.T(), err)
-}
-
-func (suite *ContainerRepoSuite) TestUpdateEmptyUpdateData() {
-	_, _ = suite.repo.Create("cid-8", "Eta", entities.ContainerOff, "10.0.0.8")
-	err := suite.repo.Update("cid-8", dto.ContainerUpdate{})
 	assert.NoError(suite.T(), err)
 }
 

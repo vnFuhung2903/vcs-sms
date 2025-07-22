@@ -22,14 +22,14 @@ type ImportResponse struct {
 }
 
 type ContainerUpdate struct {
-	Status entities.ContainerStatus `json:"status"`
+	Status entities.ContainerStatus `json:"status" binding:"required,oneof=ON OFF"`
 }
 
 type ContainerFilter struct {
-	ContainerId   string                   `form:"container_id"`
-	Status        entities.ContainerStatus `form:"status" binding:"omitempty,oneof=on off starting stopped error"`
-	ContainerName string                   `form:"container_name"`
-	Ipv4          string                   `form:"ipv4"`
+	ContainerId   string                   `form:"container_id" binding:"omitempty"`
+	Status        entities.ContainerStatus `form:"status" binding:"omitempty,oneof=ON OFF"`
+	ContainerName string                   `form:"container_name" binding:"omitempty"`
+	Ipv4          string                   `form:"ipv4" binding:"omitempty"`
 }
 
 type ContainerSort struct {

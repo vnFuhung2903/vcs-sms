@@ -71,7 +71,7 @@ func (s *ContainerServiceSuite) TestCreate() {
 
 func (s *ContainerServiceSuite) TestCreateDockerCreateError() {
 	s.dockerClient.EXPECT().Create(s.ctx, "container", "testcontainers/ryuk:0.12.0").Return(nil, errors.New("docker create error"))
-	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
+	s.logger.EXPECT().Error("failed to create docker container", gomock.Any()).Times(1)
 
 	result, err := s.containerService.Create(s.ctx, "container", "testcontainers/ryuk:0.12.0")
 	s.ErrorContains(err, "docker create error")
@@ -91,7 +91,7 @@ func (s *ContainerServiceSuite) TestCreateDockerStartError() {
 		Status:        entities.ContainerOff,
 		Ipv4:          "",
 	}, nil)
-	s.logger.EXPECT().Error("failed to start container", zap.Error(errors.New("docker start error"))).Times(1)
+	s.logger.EXPECT().Error("failed to start docker container", zap.Error(errors.New("docker start error"))).Times(1)
 	s.logger.EXPECT().Info("container created successfully", zap.String("containerId", "test-id")).Times(1)
 
 	result, err := s.containerService.Create(s.ctx, "container", "testcontainers/ryuk:0.12.0")
@@ -107,12 +107,30 @@ func (s *ContainerServiceSuite) TestCreateRepoError() {
 	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(nil)
 	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOn)
 	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("127.0.0.1")
-	s.dockerClient.EXPECT().Delete(s.ctx, "test-id").Return(nil)
 	s.mockRepo.EXPECT().Create("test-id", "container", entities.ContainerOn, "127.0.0.1").Return(nil, errors.New("db error"))
+	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(nil)
+	s.dockerClient.EXPECT().Delete(s.ctx, "test-id").Return(nil)
 	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
 
 	result, err := s.containerService.Create(s.ctx, "container", "testcontainers/ryuk:0.12.0")
 	s.ErrorContains(err, "db error")
+	s.Nil(result)
+}
+
+func (s *ContainerServiceSuite) TestCreateRepoAndDockerStopError() {
+	containerResp := &container.CreateResponse{ID: "test-id"}
+
+	s.dockerClient.EXPECT().Create(s.ctx, "container", "testcontainers/ryuk:0.12.0").Return(containerResp, nil)
+	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(nil)
+	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOn)
+	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("127.0.0.1")
+	s.mockRepo.EXPECT().Create("test-id", "container", entities.ContainerOn, "127.0.0.1").Return(nil, errors.New("db error"))
+	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(errors.New("docker stop error"))
+	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
+	s.logger.EXPECT().Error("failed to stop docker container", gomock.Any()).Times(1)
+
+	result, err := s.containerService.Create(s.ctx, "container", "testcontainers/ryuk:0.12.0")
+	s.ErrorContains(err, "docker stop error")
 	s.Nil(result)
 }
 
@@ -123,10 +141,11 @@ func (s *ContainerServiceSuite) TestCreateRepoAndDockerDeleteError() {
 	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(nil)
 	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOn)
 	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("127.0.0.1")
-	s.dockerClient.EXPECT().Delete(s.ctx, "test-id").Return(errors.New("docker delete error"))
 	s.mockRepo.EXPECT().Create("test-id", "container", entities.ContainerOn, "127.0.0.1").Return(nil, errors.New("db error"))
+	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(nil)
+	s.dockerClient.EXPECT().Delete(s.ctx, "test-id").Return(errors.New("docker delete error"))
 	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
-	s.logger.EXPECT().Error("failed to delete container", gomock.Any()).Times(1)
+	s.logger.EXPECT().Error("failed to delete docker container", gomock.Any()).Times(1)
 
 	result, err := s.containerService.Create(s.ctx, "container", "testcontainers/ryuk:0.12.0")
 	s.ErrorContains(err, "docker delete error")
@@ -165,7 +184,9 @@ func (s *ContainerServiceSuite) TestUpdateOn() {
 	updateData := dto.ContainerUpdate{Status: "ON"}
 
 	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(nil)
-	s.mockRepo.EXPECT().Update("test-id", updateData).Return(nil)
+	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOn)
+	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("127.0.0.1")
+	s.mockRepo.EXPECT().Update("test-id", entities.ContainerOn, "127.0.0.1").Return(nil)
 	s.logger.EXPECT().Info("container updated successfully", gomock.Any()).Times(1)
 
 	err := s.containerService.Update(s.ctx, "test-id", updateData)
@@ -176,7 +197,9 @@ func (s *ContainerServiceSuite) TestUpdateOff() {
 	updateData := dto.ContainerUpdate{Status: "OFF"}
 
 	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(nil)
-	s.mockRepo.EXPECT().Update("test-id", updateData).Return(nil)
+	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOff)
+	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("")
+	s.mockRepo.EXPECT().Update("test-id", entities.ContainerOff, "").Return(nil)
 	s.logger.EXPECT().Info("container updated successfully", gomock.Any()).Times(1)
 
 	err := s.containerService.Update(s.ctx, "test-id", updateData)
@@ -193,28 +216,30 @@ func (s *ContainerServiceSuite) TestUpdateInvalidStatus() {
 func (s *ContainerServiceSuite) TestUpdateDockerStartError() {
 	updateData := dto.ContainerUpdate{Status: "ON"}
 
-	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(errors.New("docker start failed"))
-	s.logger.EXPECT().Error("failed to start container", gomock.Any()).Times(1)
+	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(errors.New("docker start error"))
+	s.logger.EXPECT().Error("failed to start docker container", gomock.Any()).Times(1)
 
 	err := s.containerService.Update(s.ctx, "test-id", updateData)
-	s.ErrorContains(err, "docker start failed")
+	s.ErrorContains(err, "docker start error")
 }
 
 func (s *ContainerServiceSuite) TestUpdateDockerStopError() {
 	updateData := dto.ContainerUpdate{Status: "OFF"}
 
-	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(errors.New("docker stop failed"))
-	s.logger.EXPECT().Error("failed to stop container", gomock.Any()).Times(1)
+	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(errors.New("docker stop error"))
+	s.logger.EXPECT().Error("failed to stop docker container", gomock.Any()).Times(1)
 
 	err := s.containerService.Update(s.ctx, "test-id", updateData)
-	s.ErrorContains(err, "docker stop failed")
+	s.ErrorContains(err, "docker stop error")
 }
 
 func (s *ContainerServiceSuite) TestUpdateRepoError() {
 	updateData := dto.ContainerUpdate{Status: "OFF"}
 
 	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(nil)
-	s.mockRepo.EXPECT().Update("test-id", updateData).Return(errors.New("update failed"))
+	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOff)
+	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("")
+	s.mockRepo.EXPECT().Update("test-id", entities.ContainerOff, "").Return(errors.New("update failed"))
 	s.logger.EXPECT().Error("failed to update container", gomock.Any()).Times(1)
 
 	err := s.containerService.Update(s.ctx, "test-id", updateData)
@@ -233,7 +258,7 @@ func (s *ContainerServiceSuite) TestDelete() {
 
 func (s *ContainerServiceSuite) TestDeleteDockerStopError() {
 	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(errors.New("stop failed"))
-	s.logger.EXPECT().Error(gomock.Any(), gomock.Any()).Times(1)
+	s.logger.EXPECT().Error("failed to stop docker container", gomock.Any()).Times(1)
 
 	err := s.containerService.Delete(s.ctx, "test-id")
 	s.ErrorContains(err, "stop failed")
@@ -242,7 +267,7 @@ func (s *ContainerServiceSuite) TestDeleteDockerStopError() {
 func (s *ContainerServiceSuite) TestDeleteDockerDeleteError() {
 	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(nil)
 	s.dockerClient.EXPECT().Delete(s.ctx, "test-id").Return(errors.New("delete failed"))
-	s.logger.EXPECT().Error(gomock.Any(), gomock.Any()).Times(1)
+	s.logger.EXPECT().Error("failed to delete docker container", gomock.Any()).Times(1)
 
 	err := s.containerService.Delete(s.ctx, "test-id")
 	s.ErrorContains(err, "delete failed")
@@ -291,13 +316,13 @@ func (s *ContainerServiceSuite) TestImport() {
 		Status:        entities.ContainerOn,
 		Ipv4:          "127.0.0.1",
 	}
+	containers := []*entities.Container{containerEntity}
 
 	s.dockerClient.EXPECT().Create(s.ctx, "test-name", "nginx").Return(containerResp, nil)
 	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(nil)
 	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOn)
 	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("127.0.0.1")
-	s.mockRepo.EXPECT().Create("test-id", "test-name", entities.ContainerOn, "127.0.0.1").Return(containerEntity, nil)
-	s.logger.EXPECT().Info("container created successfully", zap.String("containerId", "test-id")).Times(1)
+	s.mockRepo.EXPECT().CreateInBatches(containers).Return(nil)
 	s.logger.EXPECT().Info("containers imported successfully").Times(1)
 
 	resp, err := s.containerService.Import(s.ctx, file)
@@ -425,6 +450,7 @@ func (s *ContainerServiceSuite) TestImportWithInvalidRows() {
 		Closer:   io.NopCloser(nil),
 	}
 
+	s.mockRepo.EXPECT().CreateInBatches([]*entities.Container{}).Return(nil)
 	resp, err := s.containerService.Import(s.ctx, fakeFile)
 	s.NoError(err)
 	s.NotNil(resp)
@@ -432,7 +458,7 @@ func (s *ContainerServiceSuite) TestImportWithInvalidRows() {
 	s.Equal(0, resp.FailedCount)
 }
 
-func (s *ContainerServiceSuite) TestImportCreateError() {
+func (s *ContainerServiceSuite) TestImportDockerCreateError() {
 	f := excelize.NewFile()
 	sheet := f.GetSheetName(0)
 	f.SetCellValue(sheet, "A1", "Container Name")
@@ -459,7 +485,7 @@ func (s *ContainerServiceSuite) TestImportCreateError() {
 	}
 
 	s.dockerClient.EXPECT().Create(s.ctx, "test-name", "nginx").Return(nil, errors.New("create error"))
-	s.logger.EXPECT().Error("failed to create container", gomock.Any()).Times(1)
+	s.mockRepo.EXPECT().CreateInBatches([]*entities.Container{}).Return(nil)
 	s.logger.EXPECT().Info("containers imported successfully").Times(1)
 
 	resp, err := s.containerService.Import(s.ctx, file)
@@ -494,6 +520,7 @@ func (s *ContainerServiceSuite) TestImportInvalidContainerField() {
 		Seeker:   reader,
 		Closer:   io.NopCloser(nil),
 	}
+	s.mockRepo.EXPECT().CreateInBatches([]*entities.Container{}).Return(nil)
 	s.logger.EXPECT().Info("containers imported successfully").Times(1)
 
 	resp, err := s.containerService.Import(s.ctx, file)
@@ -501,6 +528,107 @@ func (s *ContainerServiceSuite) TestImportInvalidContainerField() {
 	s.Equal(0, resp.SuccessCount)
 	s.Equal(1, resp.FailedCount)
 	s.Contains(resp.FailedContainers, "")
+}
+
+func (s *ContainerServiceSuite) TestImportRepoAndDockerStopError() {
+	f := excelize.NewFile()
+	sheet := f.GetSheetName(0)
+	f.SetCellValue(sheet, "A1", "Container Name")
+	f.SetCellValue(sheet, "B1", "Image Name")
+
+	f.SetCellValue(sheet, "A2", "test-name")
+	f.SetCellValue(sheet, "B2", "nginx")
+
+	var buf bytes.Buffer
+	err := f.Write(&buf)
+	s.Require().NoError(err)
+
+	reader := bytes.NewReader(buf.Bytes())
+	file := struct {
+		io.Reader
+		io.ReaderAt
+		io.Seeker
+		io.Closer
+	}{
+		Reader:   reader,
+		ReaderAt: reader,
+		Seeker:   reader,
+		Closer:   io.NopCloser(nil),
+	}
+
+	containerResp := &container.CreateResponse{ID: "test-id"}
+	containerEntity := &entities.Container{
+		ContainerId:   "test-id",
+		ContainerName: "test-name",
+		Status:        entities.ContainerOn,
+		Ipv4:          "127.0.0.1",
+	}
+	containers := []*entities.Container{containerEntity}
+
+	s.dockerClient.EXPECT().Create(s.ctx, "test-name", "nginx").Return(containerResp, nil)
+	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(nil)
+	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOn)
+	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("127.0.0.1")
+	s.mockRepo.EXPECT().CreateInBatches(containers).Return(errors.New("db error"))
+	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(errors.New("docker stop error"))
+	s.logger.EXPECT().Error("failed to stop docker container", zap.String("container_id", containerEntity.ContainerId), gomock.Any()).Times(1)
+
+	resp, err := s.containerService.Import(s.ctx, file)
+	s.NoError(err)
+	s.Equal(0, resp.SuccessCount)
+	s.Equal(1, resp.FailedCount)
+	s.Contains(resp.FailedContainers, "test-name")
+}
+
+func (s *ContainerServiceSuite) TestImportRepoAndDockerDeleteError() {
+	f := excelize.NewFile()
+	sheet := f.GetSheetName(0)
+	f.SetCellValue(sheet, "A1", "Container Name")
+	f.SetCellValue(sheet, "B1", "Image Name")
+
+	f.SetCellValue(sheet, "A2", "test-name")
+	f.SetCellValue(sheet, "B2", "nginx")
+
+	var buf bytes.Buffer
+	err := f.Write(&buf)
+	s.Require().NoError(err)
+
+	reader := bytes.NewReader(buf.Bytes())
+	file := struct {
+		io.Reader
+		io.ReaderAt
+		io.Seeker
+		io.Closer
+	}{
+		Reader:   reader,
+		ReaderAt: reader,
+		Seeker:   reader,
+		Closer:   io.NopCloser(nil),
+	}
+
+	containerResp := &container.CreateResponse{ID: "test-id"}
+	containerEntity := &entities.Container{
+		ContainerId:   "test-id",
+		ContainerName: "test-name",
+		Status:        entities.ContainerOn,
+		Ipv4:          "127.0.0.1",
+	}
+	containers := []*entities.Container{containerEntity}
+
+	s.dockerClient.EXPECT().Create(s.ctx, "test-name", "nginx").Return(containerResp, nil)
+	s.dockerClient.EXPECT().Start(s.ctx, "test-id").Return(nil)
+	s.dockerClient.EXPECT().GetStatus(s.ctx, "test-id").Return(entities.ContainerOn)
+	s.dockerClient.EXPECT().GetIpv4(s.ctx, "test-id").Return("127.0.0.1")
+	s.mockRepo.EXPECT().CreateInBatches(containers).Return(errors.New("db error"))
+	s.dockerClient.EXPECT().Stop(s.ctx, "test-id").Return(nil)
+	s.dockerClient.EXPECT().Delete(s.ctx, "test-id").Return(errors.New("docker stop error"))
+	s.logger.EXPECT().Error("failed to delete docker container", zap.String("container_id", containerEntity.ContainerId), gomock.Any()).Times(1)
+
+	resp, err := s.containerService.Import(s.ctx, file)
+	s.NoError(err)
+	s.Equal(0, resp.SuccessCount)
+	s.Equal(1, resp.FailedCount)
+	s.Contains(resp.FailedContainers, "test-name")
 }
 
 func (s *ContainerServiceSuite) TestExport() {
