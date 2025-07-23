@@ -21,8 +21,6 @@ services:
       - hungnp25_network
     ports:
       - "6379:6379"
-    volumes:
-      - ./data/redis:/data
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4

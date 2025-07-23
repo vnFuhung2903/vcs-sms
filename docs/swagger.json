@@ -1,8 +1,13 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "description": "Container Management System API",
+        "title": "VCS SMS API",
+        "contact": {},
+        "version": "1.0"
     },
+    "host": "localhost:8080",
+    "basePath": "/",
     "paths": {
         "/containers/create": {
             "post": {
@@ -134,7 +139,7 @@
                     {
                         "type": "string",
                         "description": "Sort by field",
-                        "name": "sort_by",
+                        "name": "field",
                         "in": "query"
                     },
                     {
@@ -144,7 +149,7 @@
                         ],
                         "type": "string",
                         "description": "Sort order (asc or desc)",
-                        "name": "sort_order",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
@@ -316,7 +321,7 @@
                     {
                         "type": "string",
                         "description": "Sort by field",
-                        "name": "sort_by",
+                        "name": "field",
                         "in": "query"
                     },
                     {
@@ -326,7 +331,7 @@
                         ],
                         "type": "string",
                         "description": "Sort order (asc or desc)",
-                        "name": "sort_order",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
@@ -726,9 +731,6 @@
     "definitions": {
         "dto.ContainerUpdate": {
             "type": "object",
-            "required": [
-                "status"
-            ],
             "properties": {
                 "status": {
                     "enum": [
@@ -929,6 +931,13 @@
                 "Manager",
                 "Developer"
             ]
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }

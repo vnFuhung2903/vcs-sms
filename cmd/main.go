@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	swagger "github.com/swaggo/gin-swagger"
 	"github.com/vnFuhung2903/vcs-sms/api"
+	_ "github.com/vnFuhung2903/vcs-sms/docs"
 	"github.com/vnFuhung2903/vcs-sms/entities"
 	"github.com/vnFuhung2903/vcs-sms/infrastructures/databases"
 	"github.com/vnFuhung2903/vcs-sms/interfaces"
@@ -21,6 +24,14 @@ import (
 	"github.com/vnFuhung2903/vcs-sms/workers"
 )
 
+// @title VCS SMS API
+// @version 1.0
+// @description Container Management System API
+// @host localhost:8080
+// @BasePath /
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 func main() {
 	env, err := env.LoadEnv(".")
 	if err != nil {
@@ -78,6 +89,7 @@ func main() {
 	containerHandler.SetupRoutes(r)
 	reportHandler.SetupRoutes(r)
 	userHandler.SetupRoutes(r)
+	r.GET("/swagger/*any", swagger.WrapHandler(swaggerFiles.Handler))
 
 	go func() {
 		quit := make(chan os.Signal, 1)

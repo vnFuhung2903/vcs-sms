@@ -1,3 +1,4 @@
+basePath: /
 definitions:
   dto.ContainerUpdate:
     properties:
@@ -7,8 +8,6 @@ definitions:
         enum:
         - "ON"
         - "OFF"
-    required:
-    - status
     type: object
   dto.CreateRequest:
     properties:
@@ -134,8 +133,12 @@ definitions:
     x-enum-varnames:
     - Manager
     - Developer
+host: localhost:8080
 info:
   contact: {}
+  description: Container Management System API
+  title: VCS SMS API
+  version: "1.0"
 paths:
   /containers/create:
     post:
@@ -214,14 +217,14 @@ paths:
         type: string
       - description: Sort by field
         in: query
-        name: sort_by
+        name: field
         type: string
       - description: Sort order (asc or desc)
         enum:
         - asc
         - desc
         in: query
-        name: sort_order
+        name: order
         type: string
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
@@ -331,14 +334,14 @@ paths:
         type: string
       - description: Sort by field
         in: query
-        name: sort_by
+        name: field
         type: string
       - description: Sort order (asc or desc)
         enum:
         - asc
         - desc
         in: query
-        name: sort_order
+        name: order
         type: string
       produces:
       - application/json
@@ -597,4 +600,9 @@ paths:
       summary: Update a user's scope
       tags:
       - users
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

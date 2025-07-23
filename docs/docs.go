@@ -145,7 +145,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Sort by field",
-                        "name": "sort_by",
+                        "name": "field",
                         "in": "query"
                     },
                     {
@@ -155,7 +155,7 @@ const docTemplate = `{
                         ],
                         "type": "string",
                         "description": "Sort order (asc or desc)",
-                        "name": "sort_order",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
@@ -327,7 +327,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Sort by field",
-                        "name": "sort_by",
+                        "name": "field",
                         "in": "query"
                     },
                     {
@@ -337,7 +337,7 @@ const docTemplate = `{
                         ],
                         "type": "string",
                         "description": "Sort order (asc or desc)",
-                        "name": "sort_order",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
@@ -737,9 +737,6 @@ const docTemplate = `{
     "definitions": {
         "dto.ContainerUpdate": {
             "type": "object",
-            "required": [
-                "status"
-            ],
             "properties": {
                 "status": {
                     "enum": [
@@ -941,17 +938,24 @@ const docTemplate = `{
                 "Developer"
             ]
         }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
+	Version:          "1.0",
+	Host:             "localhost:8080",
+	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "VCS SMS API",
+	Description:      "Container Management System API",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

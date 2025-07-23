@@ -87,8 +87,8 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 // @Param from query int false "From index (default 1)" default(1)
 // @Param to query int false "To index (default -1 for all)" default(-1)
 // @Param status query string false "Filter by status"
-// @Param sort_by query string false "Sort by field"
-// @Param sort_order query string false "Sort order (asc or desc)" Enums(asc, desc)
+// @Param field query string false "Sort by field"
+// @Param order query string false "Sort order (asc or desc)" Enums(asc, desc)
 // @Success 200 {object} dto.ViewResponse "Successful response with container list"
 // @Failure 400 {object} dto.ErrorResponse "Bad request"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
@@ -239,8 +239,8 @@ func (h *ContainerHandler) Import(c *gin.Context) {
 // @Param from query int false "From index (default 1)" default(1)
 // @Param to query int false "To index (default -1 for all)" default(-1)
 // @Param status query string false "Filter by status"
-// @Param sort_by query string false "Sort by field"
-// @Param sort_order query string false "Sort order (asc or desc)" Enums(asc, desc)
+// @Param field query string false "Sort by field"
+// @Param order query string false "Sort order (asc or desc)" Enums(asc, desc)
 // @Success 200 {file} binary "Excel file containing container data"
 // @Failure 400 {object} dto.ErrorResponse "Bad request"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
