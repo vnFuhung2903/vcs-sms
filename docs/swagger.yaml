@@ -1,0 +1,600 @@
+definitions:
+  dto.ContainerUpdate:
+    properties:
+      status:
+        allOf:
+        - $ref: '#/definitions/entities.ContainerStatus'
+        enum:
+        - "ON"
+        - "OFF"
+    required:
+    - status
+    type: object
+  dto.CreateRequest:
+    properties:
+      container_name:
+        type: string
+      image_name:
+        type: string
+    required:
+    - container_name
+    - image_name
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  dto.ImportResponse:
+    properties:
+      failed_containers:
+        items:
+          type: string
+        type: array
+      failed_count:
+        type: integer
+      success_containers:
+        items:
+          type: string
+        type: array
+      success_count:
+        type: integer
+    type: object
+  dto.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  dto.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      role:
+        $ref: '#/definitions/entities.UserRole'
+      username:
+        type: string
+    required:
+    - email
+    - password
+    - role
+    - username
+    type: object
+  dto.UpdatePasswordRequest:
+    properties:
+      password:
+        type: string
+    type: object
+  dto.UpdateRoleRequest:
+    properties:
+      role:
+        $ref: '#/definitions/entities.UserRole'
+    required:
+    - role
+    type: object
+  dto.UpdateScopeRequest:
+    properties:
+      is_added:
+        type: boolean
+      scopes:
+        items:
+          type: string
+        type: array
+    required:
+    - scopes
+    type: object
+  dto.ViewResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/entities.Container'
+        type: array
+      total:
+        type: integer
+    type: object
+  entities.Container:
+    properties:
+      containerId:
+        type: string
+      containerName:
+        type: string
+      createdAt:
+        type: string
+      ipv4:
+        type: string
+      status:
+        $ref: '#/definitions/entities.ContainerStatus'
+      updatedAt:
+        type: string
+    type: object
+  entities.ContainerStatus:
+    enum:
+    - "ON"
+    - "OFF"
+    type: string
+    x-enum-varnames:
+    - ContainerOn
+    - ContainerOff
+  entities.UserRole:
+    enum:
+    - manager
+    - developer
+    type: string
+    x-enum-varnames:
+    - Manager
+    - Developer
+info:
+  contact: {}
+paths:
+  /containers/create:
+    post:
+      consumes:
+      - application/json
+      description: Create a container with ID, name, status, and IPv4
+      parameters:
+      - description: Container creation request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Container created successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create new container
+      tags:
+      - containers
+  /containers/delete/{id}:
+    delete:
+      description: Delete a container by ID
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Container deleted successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a container
+      tags:
+      - containers
+  /containers/export:
+    get:
+      description: Export containers to Excel with optional filters and sort
+      parameters:
+      - default: 1
+        description: From index (default 1)
+        in: query
+        name: from
+        type: integer
+      - default: -1
+        description: To index (default -1 for all)
+        in: query
+        name: to
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Sort by field
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order (asc or desc)
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: Excel file containing container data
+          schema:
+            type: file
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Export containers
+      tags:
+      - containers
+  /containers/import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Import containers using an Excel file upload
+      parameters:
+      - description: Excel file to import containers
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Import result with success and error counts
+          schema:
+            $ref: '#/definitions/dto.ImportResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Import containers from file
+      tags:
+      - containers
+  /containers/update/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update container information by ID
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ContainerUpdate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Container updated successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update a container
+      tags:
+      - containers
+  /containers/view:
+    get:
+      description: View container list with pagination, filter, and sort
+      parameters:
+      - default: 1
+        description: From index (default 1)
+        in: query
+        name: from
+        type: integer
+      - default: -1
+        description: To index (default -1 for all)
+        in: query
+        name: to
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Sort by field
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order (asc or desc)
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful response with container list
+          schema:
+            $ref: '#/definitions/dto.ViewResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: View containers
+      tags:
+      - containers
+  /report/mail:
+    get:
+      description: Send container management report via email to specified user
+      parameters:
+      - description: Email address to send report to
+        in: query
+        name: email
+        required: true
+        type: string
+      - description: Start time for report
+        in: query
+        name: start_time
+        type: string
+      - description: End time for report (defaults to now)
+        in: query
+        name: end_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Email sent successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send email report to user
+      tags:
+      - report
+  /users/delete/{id}:
+    delete:
+      description: Remove a user from the system (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User deleted successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a user
+      tags:
+      - users
+  /users/login:
+    post:
+      consumes:
+      - application/json
+      description: Login and receive JWT token
+      parameters:
+      - description: User login credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Login with username and password
+      tags:
+      - users
+  /users/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a user and return a JWT token
+      parameters:
+      - description: User registration request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User registered successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - users
+  /users/update/password/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update password of currently logged-in user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password updated successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update own password
+      tags:
+      - users
+  /users/update/role/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update role of a user (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New role
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role updated successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update a user's role
+      tags:
+      - users
+  /users/update/scope/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update permission scope of a user (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New scope configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateScopeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Scope updated successfully
+          schema:
+            $ref: '#/definitions/dto.MessageResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update a user's scope
+      tags:
+      - users
+swagger: "2.0"

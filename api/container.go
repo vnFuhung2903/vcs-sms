@@ -53,9 +53,9 @@ func (h *ContainerHandler) SetupRoutes(r *gin.Engine) {
 // @Accept json
 // @Produce json
 // @Param body body dto.CreateRequest true "Container creation request"
-// @Success 200
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Success 200 {object} dto.MessageResponse "Container created successfully"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/create [post]
 func (h *ContainerHandler) Create(c *gin.Context) {
@@ -74,7 +74,9 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 		})
 		return
 	}
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "Container created successfully",
+	})
 }
 
 // View godoc
@@ -82,14 +84,14 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 // @Description View container list with pagination, filter, and sort
 // @Tags containers
 // @Produce json
-// @Param from query int false "From index (default 1)"
-// @Param to query int false "To index (default 10)"
+// @Param from query int false "From index (default 1)" default(1)
+// @Param to query int false "To index (default -1 for all)" default(-1)
 // @Param status query string false "Filter by status"
 // @Param sort_by query string false "Sort by field"
-// @Param sort_order query string false "Sort order (asc or desc)"
-// @Success 200 {object} dto.ViewResponse
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Param sort_order query string false "Sort order (asc or desc)" Enums(asc, desc)
+// @Success 200 {object} dto.ViewResponse "Successful response with container list"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/view [get]
 func (h *ContainerHandler) View(c *gin.Context) {
@@ -142,11 +144,12 @@ func (h *ContainerHandler) View(c *gin.Context) {
 // @Description Update container information by ID
 // @Tags containers
 // @Accept json
-// @Param id path string true "containerId"
+// @Produce json
+// @Param id path string true "Container ID"
 // @Param body body dto.ContainerUpdate true "Update data"
-// @Success 200
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Success 200 {object} dto.MessageResponse "Container updated successfully"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/update/{id} [put]
 func (h *ContainerHandler) Update(c *gin.Context) {
@@ -167,16 +170,19 @@ func (h *ContainerHandler) Update(c *gin.Context) {
 		})
 		return
 	}
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "Container updated successfully",
+	})
 }
 
 // Delete godoc
 // @Summary Delete a container
 // @Description Delete a container by ID
 // @Tags containers
-// @Param id path string true "containerId"
-// @Success 200
-// @Failure 500 {object} dto.ErrorResponse
+// @Produce json
+// @Param id path string true "Container ID"
+// @Success 200 {object} dto.MessageResponse "Container deleted successfully"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/delete/{id} [delete]
 func (h *ContainerHandler) Delete(c *gin.Context) {
@@ -188,7 +194,9 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 		})
 		return
 	}
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "Container deleted successfully",
+	})
 }
 
 // Import godoc
@@ -197,10 +205,10 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 // @Tags containers
 // @Accept multipart/form-data
 // @Produce json
-// @Param file formData file true "Excel file"
-// @Success 200 {object} dto.ImportResponse
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Param file formData file true "Excel file to import containers"
+// @Success 200 {object} dto.ImportResponse "Import result with success and error counts"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/import [post]
 func (h *ContainerHandler) Import(c *gin.Context) {
@@ -227,15 +235,15 @@ func (h *ContainerHandler) Import(c *gin.Context) {
 // @Summary Export containers
 // @Description Export containers to Excel with optional filters and sort
 // @Tags containers
-// @Produce application/octet-stream
-// @Param from query int false "From index (default 1)"
-// @Param to query int false "To index (default 10)"
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param from query int false "From index (default 1)" default(1)
+// @Param to query int false "To index (default -1 for all)" default(-1)
 // @Param status query string false "Filter by status"
 // @Param sort_by query string false "Sort by field"
-// @Param sort_order query string false "Sort order (asc or desc)"
-// @Success 200 {file} file
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Param sort_order query string false "Sort order (asc or desc)" Enums(asc, desc)
+// @Success 200 {file} binary "Excel file containing container data"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/export [get]
 func (h *ContainerHandler) Export(c *gin.Context) {

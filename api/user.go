@@ -45,10 +45,10 @@ func (h *UserHandler) SetupRoutes(r *gin.Engine) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param body body dto.RegisterRequest true "User registration"
-// @Success 200
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Param body body dto.RegisterRequest true "User registration request"
+// @Success 200 {object} dto.MessageResponse "User registered successfully"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /users/register [post]
 func (h *UserHandler) Register(c *gin.Context) {
 	var req dto.RegisterRequest
@@ -74,7 +74,9 @@ func (h *UserHandler) Register(c *gin.Context) {
 		})
 		return
 	}
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "User registered successfully",
+	})
 }
 
 // Login godoc
@@ -83,11 +85,11 @@ func (h *UserHandler) Register(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param body body dto.LoginRequest true "User login"
-// @Success 200
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Param body body dto.LoginRequest true "User login credentials"
+// @Success 200 {object} dto.MessageResponse "Login successful"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /users/login [post]
 func (h *UserHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
@@ -112,7 +114,9 @@ func (h *UserHandler) Login(c *gin.Context) {
 		})
 		return
 	}
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "Login successful",
+	})
 }
 
 // UpdatePassword godoc
@@ -121,11 +125,11 @@ func (h *UserHandler) Login(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param id path string true "userId"
-// @Param body body struct{Password string json:"password"} true "New password"
-// @Success 200
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Param id path string true "User ID"
+// @Param body body dto.UpdatePasswordRequest true "New password"
+// @Success 200 {object} dto.MessageResponse "Password updated successfully"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /users/update/password/{id} [put]
 func (h *UserHandler) UpdatePassword(c *gin.Context) {
@@ -145,7 +149,9 @@ func (h *UserHandler) UpdatePassword(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "Password updated successfully",
+	})
 }
 
 // UpdateRole godoc
@@ -154,11 +160,11 @@ func (h *UserHandler) UpdatePassword(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param id path string true "userId"
-// @Param body body struct{Role string json:"role"} true "New role"
-// @Success 200
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Param id path string true "User ID"
+// @Param body body dto.UpdateRoleRequest true "New role"
+// @Success 200 {object} dto.MessageResponse "Role updated successfully"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /users/update/role/{id} [put]
 func (h *UserHandler) UpdateRole(c *gin.Context) {
@@ -178,7 +184,9 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "Role updated successfully",
+	})
 }
 
 // UpdateScope godoc
@@ -187,11 +195,11 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param id path string true "userId"
-// @Param body body struct{Scopes int64 json:"scope"} true "New scope bitmap"
-// @Success 200
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 500 {object} dto.ErrorResponse
+// @Param id path string true "User ID"
+// @Param body body dto.UpdateScopeRequest true "New scope configuration"
+// @Success 200 {object} dto.MessageResponse "Scope updated successfully"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /users/update/scope/{id} [put]
 func (h *UserHandler) UpdateScope(c *gin.Context) {
@@ -211,7 +219,9 @@ func (h *UserHandler) UpdateScope(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "Scope updated successfully",
+	})
 }
 
 // Delete godoc
@@ -219,9 +229,9 @@ func (h *UserHandler) UpdateScope(c *gin.Context) {
 // @Description Remove a user from the system (admin only)
 // @Tags users
 // @Produce json
-// @Param id path string true "userId"
-// @Success 200
-// @Failure 500 {object} dto.ErrorResponse
+// @Param id path string true "User ID"
+// @Success 200 {object} dto.MessageResponse "User deleted successfully"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /users/delete/{id} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
@@ -234,5 +244,7 @@ func (h *UserHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "User deleted successfully",
+	})
 }

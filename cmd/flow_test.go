@@ -21,9 +21,8 @@ const (
 )
 
 var (
-	httpClient  = &http.Client{Timeout: timeout}
-	authToken   string
-	containerID string
+	httpClient = &http.Client{Timeout: timeout}
+	authToken  string
 )
 
 func getAuthTokenFromRedis() (string, error) {

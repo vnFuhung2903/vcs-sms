@@ -29,15 +29,18 @@ func (h *ReportHandler) SetupRoutes(r *gin.Engine) {
 }
 
 // SendEmail godoc
-// @Summary Email the report to a user
-// @Description Email the report of container management to a user (admin only)
+// @Summary Send email report to user
+// @Description Send container management report via email to specified user
 // @Tags report
 // @Produce json
-// @Param id path string true "userId"
-// @Success 200
-// @Failure 500 {object} dto.ErrorResponse
+// @Param email query string true "Email address to send report to"
+// @Param start_time query string false "Start time for report"
+// @Param end_time query string false "End time for report (defaults to now)"
+// @Success 200 {object} dto.MessageResponse "Email sent successfully"
+// @Failure 400 {object} dto.ErrorResponse "Bad request"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
-// @Router /report/mail/{id} [get]
+// @Router /report/mail [get]
 func (h *ReportHandler) SendEmail(c *gin.Context) {
 	var req dto.ReportRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -88,5 +91,7 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, dto.MessageResponse{
+		Message: "Email sent successfully",
+	})
 }
