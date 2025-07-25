@@ -11,17 +11,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/vnFuhung2903/vcs-sms/mocks/interfaces"
 	"github.com/vnFuhung2903/vcs-sms/pkg/env"
 )
 
 type JWTMiddlewareSuite struct {
 	suite.Suite
 	ctrl          *gomock.Controller
-	mockRedis     *interfaces.MockIRedisClient
 	jwtMiddleware IJWTMiddleware
 	router        *gin.Engine
 	testSecret    string
@@ -30,7 +27,6 @@ type JWTMiddlewareSuite struct {
 
 func (s *JWTMiddlewareSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
-	s.mockRedis = interfaces.NewMockIRedisClient(s.ctrl)
 	s.testSecret = "test-secret-key"
 	s.ctx = context.Background()
 
@@ -38,7 +34,7 @@ func (s *JWTMiddlewareSuite) SetupTest() {
 		JWTSecret: s.testSecret,
 	}
 
-	s.jwtMiddleware = NewJWTMiddleware(s.mockRedis, authEnv)
+	s.jwtMiddleware = NewJWTMiddleware(authEnv)
 
 	gin.SetMode(gin.TestMode)
 	s.router = gin.New()
@@ -50,28 +46,6 @@ func (s *JWTMiddlewareSuite) TearDownTest() {
 
 func TestJWTMiddlewareSuite(t *testing.T) {
 	suite.Run(t, new(JWTMiddlewareSuite))
-}
-
-func (s *JWTMiddlewareSuite) TestGenerateJWT() {
-	userId := "123"
-	username := "testuser"
-	scope := []string{"read", "write"}
-
-	s.mockRedis.EXPECT().Set(s.ctx, "token", gomock.Any(), time.Hour*24*7).Return(nil)
-
-	err := s.jwtMiddleware.GenerateJWT(s.ctx, userId, username, scope)
-	s.NoError(err)
-}
-
-func (s *JWTMiddlewareSuite) TestGenerateJWTRedisError() {
-	userId := "123"
-	username := "testuser"
-	scope := []string{"read", "write"}
-
-	s.mockRedis.EXPECT().Set(s.ctx, "token", gomock.Any(), time.Hour*24*7).Return(assert.AnError)
-
-	err := s.jwtMiddleware.GenerateJWT(s.ctx, userId, username, scope)
-	s.Error(err)
 }
 
 func (s *JWTMiddlewareSuite) TestRequireScope() {

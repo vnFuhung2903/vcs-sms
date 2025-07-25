@@ -1,55 +1,27 @@
 package middlewares
 
 import (
-	"context"
 	"net/http"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/vnFuhung2903/vcs-sms/interfaces"
 	"github.com/vnFuhung2903/vcs-sms/pkg/env"
 )
 
 type IJWTMiddleware interface {
-	GenerateJWT(context context.Context, userId string, username string, scope []string) error
 	RequireScope(requiredScope string) gin.HandlerFunc
 }
 
 type jwtMiddleware struct {
-	redisClient interfaces.IRedisClient
-	jwtSecret   []byte
+	jwtSecret []byte
 }
 
-func NewJWTMiddleware(redisClient interfaces.IRedisClient, env env.AuthEnv) IJWTMiddleware {
+func NewJWTMiddleware(env env.AuthEnv) IJWTMiddleware {
 	return &jwtMiddleware{
-		redisClient: redisClient,
-		jwtSecret:   []byte(env.JWTSecret),
+		jwtSecret: []byte(env.JWTSecret),
 	}
-}
-
-const jwtExpiry = time.Hour * 24 * 7
-
-func (m *jwtMiddleware) GenerateJWT(ctx context.Context, userId string, username string, scope []string) error {
-	claims := jwt.MapClaims{
-		"sub":   userId,
-		"name":  username,
-		"scope": scope,
-		"exp":   time.Now().Add(jwtExpiry).Unix(),
-		"iat":   time.Now().Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	jwtToken, err := token.SignedString(m.jwtSecret)
-	if err != nil {
-		return err
-	}
-
-	if err := m.redisClient.Set(ctx, "token", jwtToken, time.Hour*24*7); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (m *jwtMiddleware) RequireScope(requiredScope string) gin.HandlerFunc {

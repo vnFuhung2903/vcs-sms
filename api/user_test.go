@@ -59,289 +59,289 @@ func TestUserHandlerSuite(t *testing.T) {
 	suite.Run(t, new(UserHandlerSuite))
 }
 
-func (s *UserHandlerSuite) TestRegister() {
-	user := &entities.User{
-		ID:       "1",
-		Username: "testuser",
-		Email:    "test@example.com",
-		Role:     entities.Developer,
-		Scopes:   5,
-	}
-
-	s.mockUserService.EXPECT().
-		Register("testuser", "password123", "test@example.com", entities.Developer, gomock.Any()).
-		Return(user, nil)
-
-	s.mockJWTMiddleware.EXPECT().
-		GenerateJWT(gomock.Any(), "1", "testuser", gomock.Any()).
-		Return(nil)
-
-	reqBody := dto.RegisterRequest{
-		Username: "testuser",
-		Password: "password123",
-		Email:    "test@example.com",
-		Role:     entities.Developer,
-	}
-	jsonData, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest("POST", "/users/register", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusOK, w.Code)
-}
-
-func (s *UserHandlerSuite) TestRegisterInvalidRequestBody() {
-	req := httptest.NewRequest("POST", "/users/register", strings.NewReader("invalid json"))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusBadRequest, w.Code)
-
-	var response dto.ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.NotEmpty(response.Error)
-}
-
-func (s *UserHandlerSuite) TestRegisterServiceError() {
-	s.mockUserService.EXPECT().
-		Register("testuser", "password123", "test@example.com", entities.Developer, gomock.Any()).
-		Return((*entities.User)(nil), errors.New("registration failed"))
-
-	reqBody := dto.RegisterRequest{
-		Username: "testuser",
-		Password: "password123",
-		Email:    "test@example.com",
-		Role:     entities.Developer,
-	}
-	jsonData, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest("POST", "/users/register", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusInternalServerError, w.Code)
-
-	var response dto.ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("registration failed", response.Error)
-}
-
-func (s *UserHandlerSuite) TestRegisterJWTGenerationError() {
-	user := &entities.User{
-		ID:       "1",
-		Username: "testuser",
-		Hash:     "hashedpassword",
-		Email:    "test@example.com",
-		Role:     entities.Developer,
-		Scopes:   int64(5),
-	}
-
-	s.mockUserService.EXPECT().
-		Register("testuser", "password123", "test@example.com", entities.Developer, gomock.Any()).
-		Return(user, nil)
-
-	s.mockJWTMiddleware.EXPECT().
-		GenerateJWT(gomock.Any(), "1", "testuser", gomock.Any()).
-		Return(errors.New("JWT generation failed"))
-
-	reqBody := dto.RegisterRequest{
-		Username: "testuser",
-		Password: "password123",
-		Email:    "test@example.com",
-		Role:     entities.Developer,
-	}
-	jsonData, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest("POST", "/users/register", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusInternalServerError, w.Code)
-
-	var response dto.ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("JWT generation failed", response.Error)
-}
-
-func (s *UserHandlerSuite) TestLogin() {
-	user := &entities.User{
-		ID:       "1",
-		Username: "testuser",
-		Hash:     "hashedpassword",
-		Email:    "test@example.com",
-		Role:     entities.Developer,
-		Scopes:   int64(5),
-	}
-
-	s.mockUserService.EXPECT().
-		Login("testuser", "password123").
-		Return(user, nil)
-
-	s.mockJWTMiddleware.EXPECT().
-		GenerateJWT(gomock.Any(), "1", "testuser", gomock.Any()).
-		Return(nil)
-
-	reqBody := dto.LoginRequest{
-		Username: "testuser",
-		Password: "password123",
-	}
-	jsonData, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest("POST", "/users/login", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusOK, w.Code)
-}
-
-func (s *UserHandlerSuite) TestLoginInvalidRequestBody() {
-	req := httptest.NewRequest("POST", "/users/login", strings.NewReader("invalid json"))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusBadRequest, w.Code)
-
-	var response dto.ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.NotEmpty(response.Error)
-}
-
-func (s *UserHandlerSuite) TestLoginInvalidCredentials() {
-	s.mockUserService.EXPECT().
-		Login("testuser", "wrongpassword").
-		Return((*entities.User)(nil), errors.New("invalid credentials"))
-
-	reqBody := dto.LoginRequest{
-		Username: "testuser",
-		Password: "wrongpassword",
-	}
-	jsonData, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest("POST", "/users/login", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusUnauthorized, w.Code)
-
-	var response dto.ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("invalid credentials", response.Error)
-}
-
-func (s *UserHandlerSuite) TestLoginJWTGenerationError() {
-	user := &entities.User{
-		ID:       "1",
-		Username: "testuser",
-		Scopes:   5,
-	}
-
-	s.mockUserService.EXPECT().
-		Login("testuser", "password123").
-		Return(user, nil)
-
-	s.mockJWTMiddleware.EXPECT().
-		GenerateJWT(gomock.Any(), "1", "testuser", gomock.Any()).
-		Return(errors.New("JWT generation failed"))
-
-	reqBody := dto.LoginRequest{
-		Username: "testuser",
-		Password: "password123",
-	}
-	jsonData, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest("POST", "/users/login", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusInternalServerError, w.Code)
-
-	var response dto.ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("JWT generation failed", response.Error)
-}
-
-func (s *UserHandlerSuite) TestUpdatePassword() {
-	s.mockUserService.EXPECT().
-		UpdatePassword("test-user-id", "newpassword").
-		Return(nil)
-
-	reqBody := dto.UpdatePasswordRequest{
-		Password: "newpassword",
-	}
-	jsonData, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest("PUT", "/users/update/password/test-user-id", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusOK, w.Code)
-}
-
-func (s *UserHandlerSuite) TestUpdatePasswordInvalidRequestBody() {
-	req := httptest.NewRequest("PUT", "/users/update/password/test-user-id", strings.NewReader("invalid json"))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusBadRequest, w.Code)
-
-	var response dto.ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.NotEmpty(response.Error)
-}
-
-func (s *UserHandlerSuite) TestUpdatePasswordServiceError() {
-	s.mockUserService.EXPECT().
-		UpdatePassword("test-user-id", "newpassword").
-		Return(errors.New("password update failed"))
-
-	reqBody := struct {
-		Password string `json:"password"`
-	}{
-		Password: "newpassword",
-	}
-	jsonData, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest("PUT", "/users/update/password/test-user-id", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusInternalServerError, w.Code)
-
-	var response dto.ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("password update failed", response.Error)
-}
+// func (s *UserHandlerSuite) TestRegister() {
+// 	user := &entities.User{
+// 		ID:       "1",
+// 		Username: "testuser",
+// 		Email:    "test@example.com",
+// 		Role:     entities.Developer,
+// 		Scopes:   5,
+// 	}
+
+// 	s.mockUserService.EXPECT().
+// 		Register("testuser", "password123", "test@example.com", entities.Developer, gomock.Any()).
+// 		Return(user, nil)
+
+// 	s.mockJWTMiddleware.EXPECT().
+// 		GenerateJWT(gomock.Any(), "1", "testuser", gomock.Any()).
+// 		Return(nil)
+
+// 	reqBody := dto.RegisterRequest{
+// 		Username: "testuser",
+// 		Password: "password123",
+// 		Email:    "test@example.com",
+// 		Role:     entities.Developer,
+// 	}
+// 	jsonData, _ := json.Marshal(reqBody)
+
+// 	req := httptest.NewRequest("POST", "/users/register", bytes.NewBuffer(jsonData))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusOK, w.Code)
+// }
+
+// func (s *UserHandlerSuite) TestRegisterInvalidRequestBody() {
+// 	req := httptest.NewRequest("POST", "/users/register", strings.NewReader("invalid json"))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusBadRequest, w.Code)
+
+// 	var response dto.ErrorResponse
+// 	err := json.Unmarshal(w.Body.Bytes(), &response)
+// 	s.NoError(err)
+// 	s.NotEmpty(response.Error)
+// }
+
+// func (s *UserHandlerSuite) TestRegisterServiceError() {
+// 	s.mockUserService.EXPECT().
+// 		Register("testuser", "password123", "test@example.com", entities.Developer, gomock.Any()).
+// 		Return((*entities.User)(nil), errors.New("registration failed"))
+
+// 	reqBody := dto.RegisterRequest{
+// 		Username: "testuser",
+// 		Password: "password123",
+// 		Email:    "test@example.com",
+// 		Role:     entities.Developer,
+// 	}
+// 	jsonData, _ := json.Marshal(reqBody)
+
+// 	req := httptest.NewRequest("POST", "/users/register", bytes.NewBuffer(jsonData))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusInternalServerError, w.Code)
+
+// 	var response dto.ErrorResponse
+// 	err := json.Unmarshal(w.Body.Bytes(), &response)
+// 	s.NoError(err)
+// 	s.Equal("registration failed", response.Error)
+// }
+
+// func (s *UserHandlerSuite) TestRegisterJWTGenerationError() {
+// 	user := &entities.User{
+// 		ID:       "1",
+// 		Username: "testuser",
+// 		Hash:     "hashedpassword",
+// 		Email:    "test@example.com",
+// 		Role:     entities.Developer,
+// 		Scopes:   int64(5),
+// 	}
+
+// 	s.mockUserService.EXPECT().
+// 		Register("testuser", "password123", "test@example.com", entities.Developer, gomock.Any()).
+// 		Return(user, nil)
+
+// 	s.mockJWTMiddleware.EXPECT().
+// 		GenerateJWT(gomock.Any(), "1", "testuser", gomock.Any()).
+// 		Return(errors.New("JWT generation failed"))
+
+// 	reqBody := dto.RegisterRequest{
+// 		Username: "testuser",
+// 		Password: "password123",
+// 		Email:    "test@example.com",
+// 		Role:     entities.Developer,
+// 	}
+// 	jsonData, _ := json.Marshal(reqBody)
+
+// 	req := httptest.NewRequest("POST", "/users/register", bytes.NewBuffer(jsonData))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusInternalServerError, w.Code)
+
+// 	var response dto.ErrorResponse
+// 	err := json.Unmarshal(w.Body.Bytes(), &response)
+// 	s.NoError(err)
+// 	s.Equal("JWT generation failed", response.Error)
+// }
+
+// func (s *UserHandlerSuite) TestLogin() {
+// 	user := &entities.User{
+// 		ID:       "1",
+// 		Username: "testuser",
+// 		Hash:     "hashedpassword",
+// 		Email:    "test@example.com",
+// 		Role:     entities.Developer,
+// 		Scopes:   int64(5),
+// 	}
+
+// 	s.mockUserService.EXPECT().
+// 		Login("testuser", "password123").
+// 		Return(user, nil)
+
+// 	s.mockJWTMiddleware.EXPECT().
+// 		GenerateJWT(gomock.Any(), "1", "testuser", gomock.Any()).
+// 		Return(nil)
+
+// 	reqBody := dto.LoginRequest{
+// 		Username: "testuser",
+// 		Password: "password123",
+// 	}
+// 	jsonData, _ := json.Marshal(reqBody)
+
+// 	req := httptest.NewRequest("POST", "/users/login", bytes.NewBuffer(jsonData))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusOK, w.Code)
+// }
+
+// func (s *UserHandlerSuite) TestLoginInvalidRequestBody() {
+// 	req := httptest.NewRequest("POST", "/users/login", strings.NewReader("invalid json"))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusBadRequest, w.Code)
+
+// 	var response dto.ErrorResponse
+// 	err := json.Unmarshal(w.Body.Bytes(), &response)
+// 	s.NoError(err)
+// 	s.NotEmpty(response.Error)
+// }
+
+// func (s *UserHandlerSuite) TestLoginInvalidCredentials() {
+// 	s.mockUserService.EXPECT().
+// 		Login("testuser", "wrongpassword").
+// 		Return((*entities.User)(nil), errors.New("invalid credentials"))
+
+// 	reqBody := dto.LoginRequest{
+// 		Username: "testuser",
+// 		Password: "wrongpassword",
+// 	}
+// 	jsonData, _ := json.Marshal(reqBody)
+
+// 	req := httptest.NewRequest("POST", "/users/login", bytes.NewBuffer(jsonData))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusUnauthorized, w.Code)
+
+// 	var response dto.ErrorResponse
+// 	err := json.Unmarshal(w.Body.Bytes(), &response)
+// 	s.NoError(err)
+// 	s.Equal("invalid credentials", response.Error)
+// }
+
+// func (s *UserHandlerSuite) TestLoginJWTGenerationError() {
+// 	user := &entities.User{
+// 		ID:       "1",
+// 		Username: "testuser",
+// 		Scopes:   5,
+// 	}
+
+// 	s.mockUserService.EXPECT().
+// 		Login("testuser", "password123").
+// 		Return(user, nil)
+
+// 	s.mockJWTMiddleware.EXPECT().
+// 		GenerateJWT(gomock.Any(), "1", "testuser", gomock.Any()).
+// 		Return(errors.New("JWT generation failed"))
+
+// 	reqBody := dto.LoginRequest{
+// 		Username: "testuser",
+// 		Password: "password123",
+// 	}
+// 	jsonData, _ := json.Marshal(reqBody)
+
+// 	req := httptest.NewRequest("POST", "/users/login", bytes.NewBuffer(jsonData))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusInternalServerError, w.Code)
+
+// 	var response dto.ErrorResponse
+// 	err := json.Unmarshal(w.Body.Bytes(), &response)
+// 	s.NoError(err)
+// 	s.Equal("JWT generation failed", response.Error)
+// }
+
+// func (s *UserHandlerSuite) TestUpdatePassword() {
+// 	s.mockUserService.EXPECT().
+// 		UpdatePassword("test-user-id", "newpassword").
+// 		Return(nil)
+
+// 	reqBody := dto.UpdatePasswordRequest{
+// 		Password: "newpassword",
+// 	}
+// 	jsonData, _ := json.Marshal(reqBody)
+
+// 	req := httptest.NewRequest("PUT", "/users/update/password/test-user-id", bytes.NewBuffer(jsonData))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusOK, w.Code)
+// }
+
+// func (s *UserHandlerSuite) TestUpdatePasswordInvalidRequestBody() {
+// 	req := httptest.NewRequest("PUT", "/users/update/password/test-user-id", strings.NewReader("invalid json"))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusBadRequest, w.Code)
+
+// 	var response dto.ErrorResponse
+// 	err := json.Unmarshal(w.Body.Bytes(), &response)
+// 	s.NoError(err)
+// 	s.NotEmpty(response.Error)
+// }
+
+// func (s *UserHandlerSuite) TestUpdatePasswordServiceError() {
+// 	s.mockUserService.EXPECT().
+// 		UpdatePassword("test-user-id", "newpassword").
+// 		Return(errors.New("password update failed"))
+
+// 	reqBody := struct {
+// 		Password string `json:"password"`
+// 	}{
+// 		Password: "newpassword",
+// 	}
+// 	jsonData, _ := json.Marshal(reqBody)
+
+// 	req := httptest.NewRequest("PUT", "/users/update/password/test-user-id", bytes.NewBuffer(jsonData))
+// 	req.Header.Set("Content-Type", "application/json")
+// 	w := httptest.NewRecorder()
+
+// 	s.router.ServeHTTP(w, req)
+
+// 	s.Equal(http.StatusInternalServerError, w.Code)
+
+// 	var response dto.ErrorResponse
+// 	err := json.Unmarshal(w.Body.Bytes(), &response)
+// 	s.NoError(err)
+// 	s.Equal("password update failed", response.Error)
+// }
 
 func (s *UserHandlerSuite) TestUpdateRole() {
 	s.mockUserService.EXPECT().

@@ -37,7 +37,7 @@ func (s *HealthcheckServiceSuite) SetupTest() {
 	s.mockDockerClient = docker.NewMockIDockerClient(s.ctrl)
 	s.mockEsClient = interfaces.NewMockIElasticsearchClient(s.ctrl)
 	s.mockLogger = logger.NewMockILogger(s.ctrl)
-	s.healthcheckService = NewHealthcheckService(s.mockRepo, s.mockDockerClient, s.mockEsClient, s.mockLogger)
+	s.healthcheckService = NewHealthcheckService(s.mockEsClient, s.mockLogger)
 	s.ctx = context.Background()
 }
 

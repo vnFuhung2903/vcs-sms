@@ -62,16 +62,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create docker client: %v", err)
 	}
-	jwtMiddleware := middlewares.NewJWTMiddleware(redisClient, env.AuthEnv)
+	jwtMiddleware := middlewares.NewJWTMiddleware(env.AuthEnv)
 
 	containerRepository := repositories.NewContainerRepository(postgresDb)
 	userRepository := repositories.NewUserRepository(postgresDb)
 
+	authService := services.NewAuthService(userRepository, redisClient, logger, env.AuthEnv)
 	containerService := services.NewContainerService(containerRepository, dockerClient, logger)
-	healthcheckService := services.NewHealthcheckService(containerRepository, dockerClient, esClient, logger)
+	healthcheckService := services.NewHealthcheckService(esClient, logger)
 	reportService := services.NewReportService(logger, env.GomailEnv)
 	userService := services.NewUserService(userRepository, logger)
 
+	authHandler := api.NewAuthHandler(authService, jwtMiddleware)
 	containerHandler := api.NewContainerHandler(containerService, jwtMiddleware)
 	reportHandler := api.NewReportHandler(containerService, healthcheckService, reportService, jwtMiddleware)
 	userHandler := api.NewUserHandler(userService, jwtMiddleware)
@@ -86,6 +88,7 @@ func main() {
 	esWorker.Start(1)
 
 	r := gin.Default()
+	authHandler.SetupRoutes(r)
 	containerHandler.SetupRoutes(r)
 	reportHandler.SetupRoutes(r)
 	userHandler.SetupRoutes(r)
