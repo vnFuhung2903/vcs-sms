@@ -54,27 +54,36 @@ func (h *ContainerHandler) SetupRoutes(r *gin.Engine) {
 // @Produce json
 // @Param body body dto.CreateRequest true "Container creation request"
 // @Success 200 {object} dto.MessageResponse "Container created successfully"
-// @Failure 400 {object} dto.ErrorResponse "Bad request"
-// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Failure 400 {object} dto.APIResponse "Bad request"
+// @Failure 500 {object} dto.APIResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/create [post]
 func (h *ContainerHandler) Create(c *gin.Context) {
 	var req dto.CreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
 
 	_, err := h.containerService.Create(c.Request.Context(), req.ContainerName, req.ImageName)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to create container",
+			Error:   err,
 		})
 		return
 	}
-	c.JSON(http.StatusOK, dto.MessageResponse{
+
+	c.JSON(http.StatusCreated, dto.APIResponse{
+		Success: true,
+		Code:    "CONTAINER_CREATED",
 		Message: "Container created successfully",
 	})
 }
@@ -90,22 +99,28 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 // @Param field query string false "Sort by field"
 // @Param order query string false "Sort order (asc or desc)" Enums(asc, desc)
 // @Success 200 {object} dto.ViewResponse "Successful response with container list"
-// @Failure 400 {object} dto.ErrorResponse "Bad request"
-// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Failure 400 {object} dto.APIResponse "Bad request"
+// @Failure 500 {object} dto.APIResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/view [get]
 func (h *ContainerHandler) View(c *gin.Context) {
 	from, err := strconv.Atoi(c.DefaultQuery("from", "1"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
 	to, err := strconv.Atoi(c.DefaultQuery("to", "-1"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
@@ -113,29 +128,44 @@ func (h *ContainerHandler) View(c *gin.Context) {
 	var filter dto.ContainerFilter
 	var sort dto.ContainerSort
 	if err := c.ShouldBindQuery(&filter); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
 
 	if err := c.ShouldBindQuery(&sort); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
 
 	containers, total, err := h.containerService.View(c.Request.Context(), filter, from, to, sort)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to retrieve containers",
+			Error:   err,
 		})
 		return
 	}
-	c.JSON(http.StatusOK, dto.ViewResponse{
-		Data:  containers,
-		Total: total,
+
+	c.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Code:    "CONTAINERS_RETRIEVED",
+		Message: "Containers retrieved successfully",
+		Data: dto.ViewResponse{
+			Data:  containers,
+			Total: total,
+		},
 	})
 }
 
@@ -148,8 +178,8 @@ func (h *ContainerHandler) View(c *gin.Context) {
 // @Param id path string true "Container ID"
 // @Param body body dto.ContainerUpdate true "Update data"
 // @Success 200 {object} dto.MessageResponse "Container updated successfully"
-// @Failure 400 {object} dto.ErrorResponse "Bad request"
-// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Failure 400 {object} dto.APIResponse "Bad request"
+// @Failure 500 {object} dto.APIResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/update/{id} [put]
 func (h *ContainerHandler) Update(c *gin.Context) {
@@ -157,20 +187,29 @@ func (h *ContainerHandler) Update(c *gin.Context) {
 
 	var updateData dto.ContainerUpdate
 	if err := c.ShouldBindJSON(&updateData); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
 
 	err := h.containerService.Update(c.Request.Context(), containerId, updateData)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to update container",
+			Error:   err,
 		})
 		return
 	}
-	c.JSON(http.StatusOK, dto.MessageResponse{
+
+	c.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Code:    "CONTAINER_UPDATED",
 		Message: "Container updated successfully",
 	})
 }
@@ -182,19 +221,25 @@ func (h *ContainerHandler) Update(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Container ID"
 // @Success 200 {object} dto.MessageResponse "Container deleted successfully"
-// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Failure 500 {object} dto.APIResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/delete/{id} [delete]
 func (h *ContainerHandler) Delete(c *gin.Context) {
 	containerId := c.Param("id")
 	err := h.containerService.Delete(c.Request.Context(), containerId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to delete container",
+			Error:   err,
 		})
 		return
 	}
-	c.JSON(http.StatusOK, dto.MessageResponse{
+
+	c.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Code:    "CONTAINER_DELETED",
 		Message: "Container deleted successfully",
 	})
 }
@@ -207,15 +252,18 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 // @Produce json
 // @Param file formData file true "Excel file to import containers"
 // @Success 200 {object} dto.ImportResponse "Import result with success and error counts"
-// @Failure 400 {object} dto.ErrorResponse "Bad request"
-// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Failure 400 {object} dto.APIResponse "Bad request"
+// @Failure 500 {object} dto.APIResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/import [post]
 func (h *ContainerHandler) Import(c *gin.Context) {
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
@@ -223,12 +271,21 @@ func (h *ContainerHandler) Import(c *gin.Context) {
 
 	result, err := h.containerService.Import(c.Request.Context(), file)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to import containers",
+			Error:   err,
 		})
 		return
 	}
-	c.JSON(http.StatusOK, dto.ImportResponse(*result))
+
+	c.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Code:    "CONTAINERS_IMPORTED",
+		Message: "Containers imported successfully",
+		Data:    dto.ImportResponse(*result),
+	})
 }
 
 // Export godoc
@@ -242,22 +299,28 @@ func (h *ContainerHandler) Import(c *gin.Context) {
 // @Param field query string false "Sort by field"
 // @Param order query string false "Sort order (asc or desc)" Enums(asc, desc)
 // @Success 200 {file} binary "Excel file containing container data"
-// @Failure 400 {object} dto.ErrorResponse "Bad request"
-// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Failure 400 {object} dto.APIResponse "Bad request"
+// @Failure 500 {object} dto.APIResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /containers/export [get]
 func (h *ContainerHandler) Export(c *gin.Context) {
 	from, err := strconv.Atoi(c.DefaultQuery("from", "1"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
 	to, err := strconv.Atoi(c.DefaultQuery("to", "-1"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
@@ -265,23 +328,32 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 	var filter dto.ContainerFilter
 	var sort dto.ContainerSort
 	if err := c.ShouldBindQuery(&filter); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
 
 	if err := c.ShouldBindQuery(&sort); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request data",
+			Error:   err,
 		})
 		return
 	}
 
 	data, err := h.containerService.Export(c.Request.Context(), filter, from, to, sort)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to export containers",
+			Error:   err,
 		})
 		return
 	}

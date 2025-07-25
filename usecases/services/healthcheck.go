@@ -11,9 +11,7 @@ import (
 	"github.com/elastic/go-elasticsearch/esapi"
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/interfaces"
-	"github.com/vnFuhung2903/vcs-sms/pkg/docker"
 	"github.com/vnFuhung2903/vcs-sms/pkg/logger"
-	"github.com/vnFuhung2903/vcs-sms/usecases/repositories"
 	"go.uber.org/zap"
 )
 
@@ -23,16 +21,14 @@ type IHealthcheckService interface {
 }
 
 type HealthcheckService struct {
-	containerRepo repositories.IContainerRepository
-	esClient      interfaces.IElasticsearchClient
-	logger        logger.ILogger
+	esClient interfaces.IElasticsearchClient
+	logger   logger.ILogger
 }
 
-func NewHealthcheckService(repo repositories.IContainerRepository, dockerClient docker.IDockerClient, esClient interfaces.IElasticsearchClient, logger logger.ILogger) IHealthcheckService {
+func NewHealthcheckService(esClient interfaces.IElasticsearchClient, logger logger.ILogger) IHealthcheckService {
 	return &HealthcheckService{
-		containerRepo: repo,
-		esClient:      esClient,
-		logger:        logger,
+		esClient: esClient,
+		logger:   logger,
 	}
 }
 
