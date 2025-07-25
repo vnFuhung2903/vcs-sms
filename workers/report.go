@@ -12,15 +12,17 @@ import (
 	"go.uber.org/zap"
 )
 
-type IHealthcheckWorker interface {
+type IReportkWorker interface {
 	Start(numWorkers int)
 	Stop()
 }
 
-type HealthcheckWorker struct {
+type ReportkWorker struct {
 	dockerClient       docker.IDockerClient
 	containerService   services.IContainerService
 	healthcheckService services.IHealthcheckService
+	reportService      services.IReportService
+	email              string
 	logger             logger.ILogger
 	interval           time.Duration
 	ctx                context.Context
@@ -28,18 +30,22 @@ type HealthcheckWorker struct {
 	wg                 *sync.WaitGroup
 }
 
-func NewHealthcheckWorker(
+func NewReportkWorker(
 	dockerClient docker.IDockerClient,
 	containerService services.IContainerService,
 	healthcheckService services.IHealthcheckService,
+	reportService services.IReportService,
+	email string,
 	logger logger.ILogger,
 	interval time.Duration,
-) IHealthcheckWorker {
+) IReportkWorker {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &HealthcheckWorker{
+	return &ReportkWorker{
 		dockerClient:       dockerClient,
 		containerService:   containerService,
 		healthcheckService: healthcheckService,
+		reportService:      reportService,
+		email:              email,
 		logger:             logger,
 		interval:           interval,
 		ctx:                ctx,
@@ -48,17 +54,17 @@ func NewHealthcheckWorker(
 	}
 }
 
-func (w *HealthcheckWorker) Start(numWorkers int) {
+func (w *ReportkWorker) Start(numWorkers int) {
 	w.wg.Add(numWorkers)
 	go w.run()
 }
 
-func (w *HealthcheckWorker) Stop() {
+func (w *ReportkWorker) Stop() {
 	w.cancel()
 	w.wg.Wait()
 }
 
-func (w *HealthcheckWorker) run() {
+func (w *ReportkWorker) run() {
 	defer w.wg.Done()
 
 	ticker := time.NewTicker(w.interval)
@@ -70,12 +76,14 @@ func (w *HealthcheckWorker) run() {
 			w.logger.Info("elasticsearch status workers stopped")
 			return
 		case <-ticker.C:
-			w.updateHealthcheck()
+			w.report()
 		}
 	}
 }
 
-func (w *HealthcheckWorker) updateHealthcheck() {
+func (w *ReportkWorker) report() {
+	endTime := time.Now()
+	startTime := endTime.Add(-w.interval)
 	containers, total, err := w.containerService.View(w.ctx, dto.ContainerFilter{}, 1, -1, dto.ContainerSort{
 		Field: "created_at", Order: dto.Asc,
 	})
@@ -84,24 +92,28 @@ func (w *HealthcheckWorker) updateHealthcheck() {
 		return
 	}
 
-	statusList := make([]dto.EsStatusUpdate, 0, total)
-
+	var ids []string
 	for _, container := range containers {
-		status := w.dockerClient.GetStatus(w.ctx, container.ContainerId)
-		if status != container.Status {
-			if err := w.containerService.Update(w.ctx, container.ContainerId, dto.ContainerUpdate{Status: status}); err != nil {
-				w.logger.Error("failed to update container", zap.String("container_id", container.ContainerId))
-			}
-		}
-		statusList = append(statusList, dto.EsStatusUpdate{
-			ContainerId: container.ContainerId,
-			Status:      status,
-		})
+		ids = append(ids, container.ContainerId)
 	}
 
-	if err := w.healthcheckService.UpdateStatus(w.ctx, statusList, w.interval); err != nil {
-		w.logger.Error("failed to update elasticsearch status", zap.Error(err))
+	statusList, err := w.healthcheckService.GetEsStatus(w.ctx, ids, 10000, startTime, endTime, dto.Dsc)
+	if err != nil {
+		w.logger.Error("failed to get elastisearch status", zap.Error(err))
 		return
 	}
-	w.logger.Info("elasticsearch status updated successfully")
+
+	overlapStatusList, err := w.healthcheckService.GetEsStatus(w.ctx, ids, 1, endTime, time.Now(), dto.Asc)
+	if err != nil {
+		w.logger.Error("failed to get elastisearch status", zap.Error(err))
+		return
+	}
+
+	onCount, offCount, totalUptime := w.reportService.CalculateReportStatistic(containers, statusList, overlapStatusList)
+
+	if err := w.reportService.SendEmail(w.ctx, w.email, int(total), onCount, offCount, totalUptime, startTime, endTime); err != nil {
+		w.logger.Error("failed to send daily report", zap.Error(err))
+		return
+	}
+	w.logger.Info("daily report sent successfully")
 }

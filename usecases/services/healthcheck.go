@@ -18,8 +18,8 @@ import (
 )
 
 type IHealthcheckService interface {
-	UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate) error
-	GetEsStatus(ctx context.Context, ids []string, limit int, startTime time.Time, endTime time.Time) (map[string][]dto.EsStatus, error)
+	UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate, interval time.Duration) error
+	GetEsStatus(ctx context.Context, ids []string, limit int, startTime time.Time, endTime time.Time, order dto.SortOrder) (map[string][]dto.EsStatus, error)
 }
 
 type HealthcheckService struct {
@@ -36,7 +36,7 @@ func NewHealthcheckService(repo repositories.IContainerRepository, dockerClient 
 	}
 }
 
-func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate) error {
+func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate, interval time.Duration) error {
 	var buf bytes.Buffer
 	indexName := "sms_container"
 
@@ -46,8 +46,8 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 	}
 
 	endTime := time.Now()
-	startTime := endTime.Add(-24 * time.Hour)
-	existingDocs, err := s.GetEsStatus(ctx, ids, 1, startTime, endTime)
+	startTime := endTime.Add(-interval)
+	existingDocs, err := s.GetEsStatus(ctx, ids, 1, startTime, endTime, dto.Dsc)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 	return nil
 }
 
-func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limit int, startTime time.Time, endTime time.Time) (map[string][]dto.EsStatus, error) {
+func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limit int, startTime time.Time, endTime time.Time, order dto.SortOrder) (map[string][]dto.EsStatus, error) {
 	var body strings.Builder
 
 	for _, id := range ids {
@@ -171,7 +171,7 @@ func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limi
 			},
 			"size": limit,
 			"sort": []interface{}{
-				map[string]interface{}{"last_updated": map[string]string{"order": "desc"}},
+				map[string]interface{}{"last_updated": map[string]string{"order": string(order)}},
 			},
 		}
 		queryLine, _ := json.Marshal(query)

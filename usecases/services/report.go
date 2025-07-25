@@ -18,7 +18,7 @@ import (
 
 type IReportService interface {
 	SendEmail(ctx context.Context, to string, totalCount int, onCount int, offCount int, totalUptime float64, startTime time.Time, endTime time.Time) error
-	CalculateReportStatistic(data []*entities.Container, statusList map[string][]dto.EsStatus) (int, int, float64)
+	CalculateReportStatistic(containers []*entities.Container, statusList map[string][]dto.EsStatus, overlapStatusList map[string][]dto.EsStatus) (int, int, float64)
 }
 
 type ReportService struct {
@@ -92,12 +92,12 @@ func (s *ReportService) SendEmail(ctx context.Context, to string, totalCount int
 	return nil
 }
 
-func (s *ReportService) CalculateReportStatistic(data []*entities.Container, statusList map[string][]dto.EsStatus) (int, int, float64) {
+func (s *ReportService) CalculateReportStatistic(containers []*entities.Container, statusList map[string][]dto.EsStatus, overlapStatusList map[string][]dto.EsStatus) (int, int, float64) {
 	onCount := 0
 	offCount := 0
 	totalUptime := 0.0
 
-	for _, container := range data {
+	for _, container := range containers {
 		if container.Status == entities.ContainerOn {
 			onCount++
 		} else {
@@ -108,6 +108,14 @@ func (s *ReportService) CalculateReportStatistic(data []*entities.Container, sta
 			if status.Status == entities.ContainerOn {
 				totalUptime += float64(status.Uptime) / 3600
 			}
+		}
+
+		if len(statusList[container.ContainerId]) > 0 && statusList[container.ContainerId][0].Status == entities.ContainerOn {
+			continue
+		}
+
+		if len(overlapStatusList[container.ContainerId]) > 0 && overlapStatusList[container.ContainerId][0].Status == entities.ContainerOn {
+			totalUptime += float64(overlapStatusList[container.ContainerId][0].Uptime) / 3600
 		}
 	}
 

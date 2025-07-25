@@ -61,7 +61,9 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	data, total, err := h.containerService.View(c.Request.Context(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"})
+	containers, total, err := h.containerService.View(c.Request.Context(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{
+		Field: "created_at", Order: dto.Asc,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
@@ -70,11 +72,11 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 	}
 
 	var ids []string
-	for _, container := range data {
+	for _, container := range containers {
 		ids = append(ids, container.ContainerId)
 	}
 
-	results, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 200, req.StartTime, req.EndTime)
+	statusList, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 10000, req.StartTime, req.EndTime, dto.Dsc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: err.Error(),
@@ -82,7 +84,15 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	onCount, offCount, totalUptime := h.reportService.CalculateReportStatistic(data, results)
+	overlapStatusList, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 1, req.EndTime, time.Now(), dto.Asc)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	onCount, offCount, totalUptime := h.reportService.CalculateReportStatistic(containers, statusList, overlapStatusList)
 
 	if err := h.reportService.SendEmail(c.Request.Context(), req.Email, int(total), onCount, offCount, totalUptime, req.StartTime, req.EndTime); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
