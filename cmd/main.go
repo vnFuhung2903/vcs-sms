@@ -71,7 +71,7 @@ func main() {
 	containerService := services.NewContainerService(containerRepository, dockerClient, logger)
 	healthcheckService := services.NewHealthcheckService(esClient, logger)
 	reportService := services.NewReportService(logger, env.GomailEnv)
-	userService := services.NewUserService(userRepository, logger)
+	userService := services.NewUserService(userRepository, redisClient, logger)
 
 	authHandler := api.NewAuthHandler(authService, jwtMiddleware)
 	containerHandler := api.NewContainerHandler(containerService, jwtMiddleware)

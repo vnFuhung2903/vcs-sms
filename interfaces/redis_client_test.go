@@ -19,9 +19,14 @@ func TestRedisClient(t *testing.T) {
 	assert.NotNil(t, rds)
 
 	redisClient := NewRedisClient(rds)
+
 	err := redisClient.Set(context.Background(), "test_key", "test_value", time.Hour)
 	assert.Error(t, err)
+
 	value, err := redisClient.Get(context.Background(), "test_key")
 	assert.Error(t, err)
 	assert.Equal(t, "", value)
+
+	err = redisClient.Del(context.Background(), "test_key")
+	assert.Error(t, err)
 }

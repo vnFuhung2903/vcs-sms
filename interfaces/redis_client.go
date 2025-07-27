@@ -10,6 +10,7 @@ import (
 type IRedisClient interface {
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
 	Get(ctx context.Context, key string) (string, error)
+	Del(ctx context.Context, key string) error
 }
 
 type RedisClient struct {
@@ -26,4 +27,8 @@ func (c *RedisClient) Set(ctx context.Context, key string, value interface{}, ex
 
 func (c *RedisClient) Get(ctx context.Context, key string) (string, error) {
 	return c.client.Get(ctx, key).Result()
+}
+
+func (c *RedisClient) Del(ctx context.Context, key string) error {
+	return c.client.Del(ctx, key).Err()
 }

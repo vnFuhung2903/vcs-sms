@@ -106,7 +106,7 @@ func TestUserRegistration(t *testing.T) {
 		"role":     "developer",
 	}
 
-	resp, err := makeRequest("POST", "/users/register", payload, false, "")
+	resp, err := makeRequest("POST", "/auth/register", payload, false, "")
 	printResponse("User Registration", resp, err)
 	defer resp.Body.Close()
 }
@@ -117,7 +117,7 @@ func TestUserLogin(t *testing.T) {
 		"password": "admin123",
 	}
 
-	resp, err := makeRequest("POST", "/users/login", payload, false, "")
+	resp, err := makeRequest("POST", "/auth/login", payload, false, "")
 	printResponse("User Login", resp, err)
 	defer resp.Body.Close()
 }
@@ -242,7 +242,7 @@ func TestUpdateUserPassword(t *testing.T) {
 		"password": "newpassword123",
 	}
 
-	resp, err := makeRequest("PUT", "/users/update/password/user-id", payload, true, "")
+	resp, err := makeRequest("PUT", "/auth/update/password/user-id", payload, true, "")
 	printResponse("Update User Password", resp, err)
 	defer resp.Body.Close()
 }
