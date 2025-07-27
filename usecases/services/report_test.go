@@ -120,27 +120,33 @@ func (s *ReportServiceSuite) TestSendEmailTemplateExecutionError() {
 }
 
 func (s *ReportServiceSuite) TestCalculateReportStatistic() {
-	containers := []*entities.Container{
-		{ContainerId: "container1", Status: entities.ContainerOn},
-		{ContainerId: "container2", Status: entities.ContainerOff},
-		{ContainerId: "container3", Status: entities.ContainerOn},
-	}
-
+	endTime := time.Now()
+	startTime := endTime.Add(-4 * time.Hour)
 	statusList := map[string][]dto.EsStatus{
 		"container1": {
-			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600)},
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: time.Now().Add(-210 * time.Minute)},
+			{ContainerId: "container1", Status: entities.ContainerOff, Uptime: int64(1800), LastUpdated: time.Now().Add(-3 * time.Hour)},
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: time.Now().Add(-2 * time.Hour)},
 		},
 		"container2": {
-			{ContainerId: "container2", Status: entities.ContainerOff, Uptime: int64(7200)},
+			{ContainerId: "container2", Status: entities.ContainerOff, Uptime: int64(7200), LastUpdated: time.Now().Add(-1 * time.Minute)},
 		},
+		"container3": {},
+	}
+
+	overlapStatusList := map[string][]dto.EsStatus{
+		"container1": {
+			{ContainerId: "container1", Status: entities.ContainerOff, Uptime: int64(7200), LastUpdated: time.Now()},
+		},
+		"container2": {},
 		"container3": {
-			{ContainerId: "container3", Status: entities.ContainerOn, Uptime: int64(1800)},
+			{ContainerId: "container3", Status: entities.ContainerOn, Uptime: int64(1800), LastUpdated: time.Now()},
 		},
 	}
 
-	onCount, offCount, totalUptime := s.reportService.CalculateReportStatistic(containers, statusList)
+	onCount, offCount, totalUptime := s.reportService.CalculateReportStatistic(statusList, overlapStatusList, startTime, endTime)
 
-	s.Equal(2, onCount)
-	s.Equal(1, offCount)
-	s.Equal(1.5, totalUptime)
+	s.Equal(1, onCount)
+	s.Equal(2, offCount)
+	s.Equal(float64(2), totalUptime)
 }

@@ -37,30 +37,30 @@ func (m *MockIHealthcheckService) EXPECT() *MockIHealthcheckServiceMockRecorder 
 }
 
 // GetEsStatus mocks base method.
-func (m *MockIHealthcheckService) GetEsStatus(ctx context.Context, ids []string, limit int, startTime, endTime time.Time) (map[string][]dto.EsStatus, error) {
+func (m *MockIHealthcheckService) GetEsStatus(ctx context.Context, ids []string, limit int, startTime, endTime time.Time, order dto.SortOrder) (map[string][]dto.EsStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEsStatus", ctx, ids, limit, startTime, endTime)
+	ret := m.ctrl.Call(m, "GetEsStatus", ctx, ids, limit, startTime, endTime, order)
 	ret0, _ := ret[0].(map[string][]dto.EsStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetEsStatus indicates an expected call of GetEsStatus.
-func (mr *MockIHealthcheckServiceMockRecorder) GetEsStatus(ctx, ids, limit, startTime, endTime interface{}) *gomock.Call {
+func (mr *MockIHealthcheckServiceMockRecorder) GetEsStatus(ctx, ids, limit, startTime, endTime, order interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEsStatus", reflect.TypeOf((*MockIHealthcheckService)(nil).GetEsStatus), ctx, ids, limit, startTime, endTime)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEsStatus", reflect.TypeOf((*MockIHealthcheckService)(nil).GetEsStatus), ctx, ids, limit, startTime, endTime, order)
 }
 
 // UpdateStatus mocks base method.
-func (m *MockIHealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate) error {
+func (m *MockIHealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.EsStatusUpdate, interval time.Duration) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateStatus", ctx, statusList)
+	ret := m.ctrl.Call(m, "UpdateStatus", ctx, statusList, interval)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateStatus indicates an expected call of UpdateStatus.
-func (mr *MockIHealthcheckServiceMockRecorder) UpdateStatus(ctx, statusList interface{}) *gomock.Call {
+func (mr *MockIHealthcheckServiceMockRecorder) UpdateStatus(ctx, statusList, interval interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockIHealthcheckService)(nil).UpdateStatus), ctx, statusList)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockIHealthcheckService)(nil).UpdateStatus), ctx, statusList, interval)
 }

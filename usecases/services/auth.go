@@ -19,7 +19,8 @@ import (
 type IAuthService interface {
 	Login(ctx context.Context, username, password string) (string, error)
 	Register(username, password, email string, role entities.UserRole, scopes int64) (*entities.User, error)
-	UpdatePassword(userId, currentPassword, newPassword string) error
+	RefreshAccessToken(ctx context.Context, userId string) (string, error)
+	UpdatePassword(ctx context.Context, userId, currentPassword, newPassword string) error
 }
 
 type authService struct {
@@ -71,11 +72,11 @@ func (s *authService) Login(ctx context.Context, username, password string) (str
 		return "", err
 	}
 
-	key := "refresh:" + user.ID
-	if err := s.redisClient.Set(ctx, key, refreshToken, time.Hour*24*7); err != nil {
-		s.logger.Error("failed to set access token in redis", zap.Error(err))
+	if err := s.redisClient.Set(ctx, "refresh:"+user.ID, refreshToken, time.Hour*24*7); err != nil {
+		s.logger.Error("failed to set refresh token in redis", zap.Error(err))
 		return "", err
 	}
+
 	s.logger.Info("user logged in successfully")
 	return accessToken, nil
 }
@@ -103,20 +104,16 @@ func (s *authService) Register(username, password, email string, role entities.U
 	return user, nil
 }
 
-func (s *authService) UpdatePassword(userId, currentPassword, newPassword string) error {
+func (s *authService) UpdatePassword(ctx context.Context, userId, currentPassword, newPassword string) error {
 	user, err := s.userRepo.FindById(userId)
 	if err != nil {
 		s.logger.Error("failed to find user by id", zap.Error(err))
 		return err
 	}
 
-	currentHash, err := bcrypt.GenerateFromPassword([]byte(currentPassword), bcrypt.DefaultCost)
-	if err != nil {
-		s.logger.Error("failed to hash password", zap.Error(err))
-		return err
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Hash), currentHash); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Hash), []byte(currentPassword)); err != nil {
 		s.logger.Error("current password does not match", zap.Error(err))
+		return err
 	}
 
 	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
@@ -129,8 +126,46 @@ func (s *authService) UpdatePassword(userId, currentPassword, newPassword string
 		s.logger.Error("failed to update user's password", zap.Error(err))
 		return err
 	}
+
+	if err := s.redisClient.Del(ctx, "refresh:"+user.ID); err != nil {
+		s.logger.Error("failed to delete refresh token in redis", zap.Error(err))
+		return err
+	}
+
 	s.logger.Info("user's password updated successfully")
 	return nil
+}
+
+func (s *authService) RefreshAccessToken(ctx context.Context, userId string) (string, error) {
+	refreshToken, err := s.redisClient.Get(ctx, "refresh:"+userId)
+	if err != nil {
+		s.logger.Error("failed to get refresh token from redis", zap.Error(err))
+		return "", err
+	}
+
+	claims := &jwt.MapClaims{}
+	token, err := jwt.ParseWithClaims(refreshToken, claims, func(token *jwt.Token) (interface{}, error) {
+		return s.jwtSecret, nil
+	})
+	if err != nil || !token.Valid {
+		s.logger.Error("invalid refresh token", zap.Error(err))
+		return "", err
+	}
+
+	user, err := s.userRepo.FindById(userId)
+	if err != nil {
+		s.logger.Error("failed to find user by id", zap.Error(err))
+		return "", err
+	}
+
+	accessToken, err := s.generateAccessToken(userId, utils.HashMapToScopes(user.Scopes))
+	if err != nil {
+		s.logger.Error("failed to generate new access token", zap.Error(err))
+		return "", err
+	}
+
+	s.logger.Info("access token refreshed successfully")
+	return accessToken, nil
 }
 
 func (s *authService) generateAccessToken(userId string, scope []string) (string, error) {

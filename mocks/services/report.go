@@ -11,7 +11,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	dto "github.com/vnFuhung2903/vcs-sms/dto"
-	entities "github.com/vnFuhung2903/vcs-sms/entities"
 )
 
 // MockIReportService is a mock of IReportService interface.
@@ -38,9 +37,9 @@ func (m *MockIReportService) EXPECT() *MockIReportServiceMockRecorder {
 }
 
 // CalculateReportStatistic mocks base method.
-func (m *MockIReportService) CalculateReportStatistic(data []*entities.Container, statusList map[string][]dto.EsStatus) (int, int, float64) {
+func (m *MockIReportService) CalculateReportStatistic(statusList, overlapStatusList map[string][]dto.EsStatus, startTime, endTime time.Time) (int, int, float64) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CalculateReportStatistic", data, statusList)
+	ret := m.ctrl.Call(m, "CalculateReportStatistic", statusList, overlapStatusList, startTime, endTime)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(float64)
@@ -48,9 +47,9 @@ func (m *MockIReportService) CalculateReportStatistic(data []*entities.Container
 }
 
 // CalculateReportStatistic indicates an expected call of CalculateReportStatistic.
-func (mr *MockIReportServiceMockRecorder) CalculateReportStatistic(data, statusList interface{}) *gomock.Call {
+func (mr *MockIReportServiceMockRecorder) CalculateReportStatistic(statusList, overlapStatusList, startTime, endTime interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculateReportStatistic", reflect.TypeOf((*MockIReportService)(nil).CalculateReportStatistic), data, statusList)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculateReportStatistic", reflect.TypeOf((*MockIReportService)(nil).CalculateReportStatistic), statusList, overlapStatusList, startTime, endTime)
 }
 
 // SendEmail mocks base method.

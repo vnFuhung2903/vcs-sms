@@ -81,7 +81,7 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusNewDocument() {
 	s.mockLogger.EXPECT().Info("elasticsearch status retrieved successfully", gomock.Any()).Times(1)
 	s.mockLogger.EXPECT().Info("elasticsearch status indexed successfully").Times(1)
 
-	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
+	err := s.healthcheckService.UpdateStatus(s.ctx, statusList, time.Hour)
 	s.NoError(err)
 }
 
@@ -129,7 +129,7 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusUpdateDocument() {
 	s.mockLogger.EXPECT().Info("elasticsearch status retrieved successfully", gomock.Any()).Times(1)
 	s.mockLogger.EXPECT().Info("elasticsearch status indexed successfully").Times(1)
 
-	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
+	err := s.healthcheckService.UpdateStatus(s.ctx, statusList, time.Hour)
 	s.NoError(err)
 }
 
@@ -141,7 +141,7 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusGetEsStatusError() {
 	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).Return(nil, errors.New("elasticsearch error")).Times(1)
 	s.mockLogger.EXPECT().Error("failed to msearch elasticsearch status", gomock.Any()).Times(1)
 
-	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
+	err := s.healthcheckService.UpdateStatus(s.ctx, statusList, time.Hour)
 	s.Error(err)
 	s.Contains(err.Error(), "elasticsearch error")
 }
@@ -171,7 +171,7 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusBulkError() {
 	s.mockLogger.EXPECT().Info("elasticsearch status retrieved successfully", gomock.Any()).Times(1)
 	s.mockLogger.EXPECT().Error("failed to bulk elasticsearch status", gomock.Any()).Times(1)
 
-	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
+	err := s.healthcheckService.UpdateStatus(s.ctx, statusList, time.Hour)
 	s.Error(err)
 	s.Contains(err.Error(), "bulk error")
 }
@@ -220,7 +220,7 @@ func (s *HealthcheckServiceSuite) TestUpdateStatusSameStatusUpdate() {
 	s.mockLogger.EXPECT().Info("elasticsearch status retrieved successfully", gomock.Any()).Times(1)
 	s.mockLogger.EXPECT().Info("elasticsearch status indexed successfully").Times(1)
 
-	err := s.healthcheckService.UpdateStatus(s.ctx, statusList)
+	err := s.healthcheckService.UpdateStatus(s.ctx, statusList, time.Hour)
 	s.NoError(err)
 }
 
@@ -272,7 +272,7 @@ func (s *HealthcheckServiceSuite) TestGetEsStatus() {
 		return response, nil
 	}).Times(1)
 
-	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
+	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime, dto.Asc)
 	s.NoError(err)
 	s.Equal(2, len(result))
 	s.Equal(1, len(result["container1"]))
@@ -290,7 +290,7 @@ func (s *HealthcheckServiceSuite) TestGetEsStatusElasticsearchError() {
 	s.mockEsClient.EXPECT().Do(s.ctx, gomock.Any()).Return(nil, errors.New("elasticsearch connection error")).Times(1)
 	s.mockLogger.EXPECT().Error("failed to msearch elasticsearch status", gomock.Any()).Times(1)
 
-	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
+	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime, dto.Asc)
 	s.Error(err)
 	s.Nil(result)
 	s.Contains(err.Error(), "elasticsearch connection error")
@@ -314,7 +314,7 @@ func (s *HealthcheckServiceSuite) TestGetEsStatusReadBodyError() {
 
 	s.mockLogger.EXPECT().Error("failed to read response body", gomock.Any()).Times(1)
 
-	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
+	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime, dto.Asc)
 	s.Error(err)
 	s.Nil(result)
 }
@@ -335,7 +335,7 @@ func (s *HealthcheckServiceSuite) TestGetEsStatusInvalidJSONResponse() {
 
 	s.mockLogger.EXPECT().Error("failed to decode response body", gomock.Any()).Times(1)
 
-	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime)
+	result, err := s.healthcheckService.GetEsStatus(s.ctx, ids, limit, startTime, endTime, dto.Asc)
 	s.Error(err)
 	s.Nil(result)
 }

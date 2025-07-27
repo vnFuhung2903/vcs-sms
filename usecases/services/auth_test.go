@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/suite"
@@ -23,17 +24,17 @@ type AuthServiceSuite struct {
 	mockRedis   *interfaces.MockIRedisClient
 	logger      *logger.MockILogger
 	ctx         context.Context
-	testSecret  string
 }
 
 func (s *AuthServiceSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockRepo = repositories.NewMockIUserRepository(s.ctrl)
+	s.mockRedis = interfaces.NewMockIRedisClient(s.ctrl)
+	s.ctx = context.Background()
 	s.logger = logger.NewMockILogger(s.ctrl)
 
-	s.testSecret = "test-secret-key"
 	authEnv := env.AuthEnv{
-		JWTSecret: s.testSecret,
+		JWTSecret: "test-secret-key",
 	}
 
 	s.authService = NewAuthService(s.mockRepo, s.mockRedis, s.logger, authEnv)
@@ -111,6 +112,7 @@ func (s *AuthServiceSuite) TestLoginWithUsername() {
 	}
 
 	s.mockRepo.EXPECT().FindByName(username).Return(expected, nil)
+	s.mockRedis.EXPECT().Set(s.ctx, "refresh:"+expected.ID, gomock.Any(), time.Hour*24*7).Return(nil)
 	s.logger.EXPECT().Info("user logged in successfully").Times(1)
 
 	accessToken, err := s.authService.Login(s.ctx, username, password)
@@ -118,7 +120,7 @@ func (s *AuthServiceSuite) TestLoginWithUsername() {
 	s.NotEqual("", accessToken)
 }
 
-func (s *AuthServiceSuite) TestLoginWithEmail() {
+func (s *AuthServiceSuite) TestLoginWithEmailRedisError() {
 	email := "test@example.com"
 	password := "password123"
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -130,11 +132,12 @@ func (s *AuthServiceSuite) TestLoginWithEmail() {
 	}
 
 	s.mockRepo.EXPECT().FindByEmail(email).Return(expected, nil)
-	s.logger.EXPECT().Info("user logged in successfully").Times(1)
+	s.mockRedis.EXPECT().Set(s.ctx, "refresh:"+expected.ID, gomock.Any(), time.Hour*24*7).Return(errors.New("redis error"))
+	s.logger.EXPECT().Error("failed to set refresh token in redis", gomock.Any()).Times(1)
 
 	accessToken, err := s.authService.Login(s.ctx, email, password)
-	s.NoError(err)
-	s.NotEqual("", accessToken)
+	s.ErrorContains(err, "redis error")
+	s.Equal("", accessToken)
 }
 
 func (s *AuthServiceSuite) TestLoginUserNotFoundByUsername() {
@@ -184,18 +187,21 @@ func (s *AuthServiceSuite) TestLoginWrongPassword() {
 func (s *AuthServiceSuite) TestUpdatePassword() {
 	userId := "test-id"
 	currentPassword := "oldpassword"
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(currentPassword), bcrypt.DefaultCost)
 	newPassword := "newpassword123"
 
-	existingUser := &entities.User{
+	user := &entities.User{
 		ID:       userId,
 		Username: "testuser",
+		Hash:     string(hashedPassword),
 	}
 
-	s.mockRepo.EXPECT().FindById(userId).Return(existingUser, nil)
-	s.mockRepo.EXPECT().UpdatePassword(existingUser, gomock.Any()).Return(nil)
+	s.mockRepo.EXPECT().FindById(userId).Return(user, nil)
+	s.mockRepo.EXPECT().UpdatePassword(user, gomock.Any()).Return(nil)
+	s.mockRedis.EXPECT().Del(s.ctx, "refresh:"+userId).Return(nil)
 	s.logger.EXPECT().Info("user's password updated successfully").Times(1)
 
-	err := s.authService.UpdatePassword(userId, currentPassword, newPassword)
+	err := s.authService.UpdatePassword(s.ctx, userId, currentPassword, newPassword)
 	s.NoError(err)
 }
 
@@ -207,24 +213,124 @@ func (s *AuthServiceSuite) TestUpdatePasswordUserNotFound() {
 	s.mockRepo.EXPECT().FindById(userId).Return(nil, errors.New("user not found"))
 	s.logger.EXPECT().Error("failed to find user by id", gomock.Any()).Times(1)
 
-	err := s.authService.UpdatePassword(userId, currentPassword, newPassword)
+	err := s.authService.UpdatePassword(s.ctx, userId, currentPassword, newPassword)
 	s.ErrorContains(err, "user not found")
 }
 
-func (s *AuthServiceSuite) TestUpdatePasswordError() {
+func (s *AuthServiceSuite) TestUpdatePasswordWrongPassword() {
 	userId := "test-id"
-	currentPassword := "oldpassword"
+	currentPassword := "wrongpassword"
 	newPassword := "newpassword123"
+	correctPassword := "correctpassword"
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(correctPassword), bcrypt.DefaultCost)
 
-	existingUser := &entities.User{
+	user := &entities.User{
 		ID:       userId,
 		Username: "testuser",
+		Hash:     string(hashedPassword),
 	}
 
-	s.mockRepo.EXPECT().FindById(userId).Return(existingUser, nil)
-	s.mockRepo.EXPECT().UpdatePassword(existingUser, gomock.Any()).Return(errors.New("update failed"))
+	s.mockRepo.EXPECT().FindById(userId).Return(user, nil)
+	s.logger.EXPECT().Error("current password does not match", gomock.Any()).Times(1)
+
+	err := s.authService.UpdatePassword(s.ctx, userId, currentPassword, newPassword)
+	s.Error(err)
+}
+
+func (s *AuthServiceSuite) TestUpdatePasswordRepoError() {
+	userId := "test-id"
+	currentPassword := "oldpassword"
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(currentPassword), bcrypt.DefaultCost)
+	newPassword := "newpassword123"
+
+	user := &entities.User{
+		ID:       userId,
+		Username: "testuser",
+		Hash:     string(hashedPassword),
+	}
+
+	s.mockRepo.EXPECT().FindById(userId).Return(user, nil)
+	s.mockRepo.EXPECT().UpdatePassword(user, gomock.Any()).Return(errors.New("update failed"))
 	s.logger.EXPECT().Error("failed to update user's password", gomock.Any()).Times(1)
 
-	err := s.authService.UpdatePassword(userId, currentPassword, newPassword)
+	err := s.authService.UpdatePassword(s.ctx, userId, currentPassword, newPassword)
 	s.ErrorContains(err, "update failed")
+}
+
+func (s *AuthServiceSuite) TestUpdatePasswordRedisError() {
+	userId := "test-id"
+	currentPassword := "oldpassword"
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(currentPassword), bcrypt.DefaultCost)
+	newPassword := "newpassword123"
+
+	user := &entities.User{
+		ID:       userId,
+		Username: "testuser",
+		Hash:     string(hashedPassword),
+	}
+
+	s.mockRepo.EXPECT().FindById(userId).Return(user, nil)
+	s.mockRepo.EXPECT().UpdatePassword(user, gomock.Any()).Return(nil)
+	s.mockRedis.EXPECT().Del(s.ctx, "refresh:"+userId).Return(errors.New("redis error"))
+	s.logger.EXPECT().Error("failed to delete refresh token in redis", gomock.Any()).Times(1)
+
+	err := s.authService.UpdatePassword(s.ctx, userId, currentPassword, newPassword)
+	s.ErrorContains(err, "redis error")
+}
+
+func (s *AuthServiceSuite) TestRefreshAccessToken() {
+	userId := "test-id"
+	user := &entities.User{
+		ID:       userId,
+		Username: "testuser",
+		Scopes:   7,
+	}
+
+	authService := s.authService.(*authService)
+	validRefreshToken, _ := authService.generateRefreshToken(userId)
+	s.mockRedis.EXPECT().Get(s.ctx, "refresh:"+userId).Return(validRefreshToken, nil)
+	s.mockRepo.EXPECT().FindById(userId).Return(user, nil)
+	s.logger.EXPECT().Info("access token refreshed successfully").Times(1)
+
+	accessToken, err := s.authService.RefreshAccessToken(s.ctx, userId)
+	s.NoError(err)
+	s.NotEmpty(accessToken)
+}
+
+func (s *AuthServiceSuite) TestRefreshAccessTokenRedisError() {
+	userId := "test-id"
+
+	s.mockRedis.EXPECT().Get(s.ctx, "refresh:"+userId).Return("", errors.New("redis connection failed"))
+	s.logger.EXPECT().Error("failed to get refresh token from redis", gomock.Any()).Times(1)
+
+	accessToken, err := s.authService.RefreshAccessToken(s.ctx, userId)
+	s.Empty(accessToken)
+	s.ErrorContains(err, "redis connection failed")
+}
+
+func (s *AuthServiceSuite) TestRefreshAccessTokenInvalidToken() {
+	userId := "test-id"
+	invalidRefreshToken := "invalid.jwt.token"
+
+	s.mockRedis.EXPECT().Get(s.ctx, "refresh:"+userId).Return(invalidRefreshToken, nil)
+	s.logger.EXPECT().Error("invalid refresh token", gomock.Any()).Times(1)
+
+	accessToken, err := s.authService.RefreshAccessToken(s.ctx, userId)
+	s.Empty(accessToken)
+	s.Error(err)
+}
+
+func (s *AuthServiceSuite) TestRefreshAccessTokenUserNotFound() {
+	userId := "test-id"
+
+	authService := s.authService.(*authService)
+	validRefreshToken, _ := authService.generateRefreshToken(userId)
+
+	s.mockRedis.EXPECT().Get(s.ctx, "refresh:"+userId).Return(validRefreshToken, nil)
+	s.mockRepo.EXPECT().FindById(userId).Return(nil, errors.New("user not found"))
+	s.logger.EXPECT().Error("failed to find user by id", gomock.Any()).Times(1)
+
+	accessToken, err := s.authService.RefreshAccessToken(s.ctx, userId)
+	s.Empty(accessToken)
+	s.ErrorContains(err, "user not found")
 }

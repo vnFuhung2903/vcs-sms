@@ -18,7 +18,7 @@ import (
 
 type IReportService interface {
 	SendEmail(ctx context.Context, to string, totalCount int, onCount int, offCount int, totalUptime float64, startTime time.Time, endTime time.Time) error
-	CalculateReportStatistic(containers []*entities.Container, statusList map[string][]dto.EsStatus, overlapStatusList map[string][]dto.EsStatus) (int, int, float64)
+	CalculateReportStatistic(statusList map[string][]dto.EsStatus, overlapStatusList map[string][]dto.EsStatus, startTime time.Time, endTime time.Time) (int, int, float64)
 }
 
 type ReportService struct {
@@ -92,31 +92,36 @@ func (s *ReportService) SendEmail(ctx context.Context, to string, totalCount int
 	return nil
 }
 
-func (s *ReportService) CalculateReportStatistic(containers []*entities.Container, statusList map[string][]dto.EsStatus, overlapStatusList map[string][]dto.EsStatus) (int, int, float64) {
+func (s *ReportService) CalculateReportStatistic(statusList map[string][]dto.EsStatus, overlapStatusList map[string][]dto.EsStatus, startTime time.Time, endTime time.Time) (int, int, float64) {
 	onCount := 0
 	offCount := 0
 	totalUptime := 0.0
+	isOnline := 0
 
-	for _, container := range containers {
-		if container.Status == entities.ContainerOn {
-			onCount++
-		} else {
-			offCount++
-		}
-
-		for _, status := range statusList[container.ContainerId] {
+	for containerId, containerStatus := range statusList {
+		previousTime := startTime
+		for _, status := range containerStatus {
 			if status.Status == entities.ContainerOn {
-				totalUptime += float64(status.Uptime) / 3600
+				totalUptime += min(status.LastUpdated.Sub(startTime).Hours(), float64(status.Uptime)/3600)
+				isOnline = 1
+			} else {
+				previousTime = time.Unix(max(previousTime.Unix(), status.LastUpdated.Unix()), 0)
+				isOnline = 0
 			}
 		}
 
-		if len(statusList[container.ContainerId]) > 0 && statusList[container.ContainerId][0].Status == entities.ContainerOn {
+		if len(overlapStatusList[containerId]) > 0 {
+			if overlapStatusList[containerId][0].Status == entities.ContainerOn {
+				onCount++
+				totalUptime += min(endTime.Sub(previousTime).Hours(), float64(overlapStatusList[containerId][0].Uptime)/3600)
+			} else {
+				offCount++
+			}
 			continue
 		}
 
-		if len(overlapStatusList[container.ContainerId]) > 0 && overlapStatusList[container.ContainerId][0].Status == entities.ContainerOn {
-			totalUptime += float64(overlapStatusList[container.ContainerId][0].Uptime) / 3600
-		}
+		onCount += isOnline
+		offCount += 1 - isOnline
 	}
 
 	return onCount, offCount, totalUptime

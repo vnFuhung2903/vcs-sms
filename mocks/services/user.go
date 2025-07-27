@@ -5,6 +5,7 @@
 package services
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -35,87 +36,43 @@ func (m *MockIUserService) EXPECT() *MockIUserServiceMockRecorder {
 }
 
 // Delete mocks base method.
-func (m *MockIUserService) Delete(userId string) error {
+func (m *MockIUserService) Delete(ctx context.Context, userId string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", userId)
+	ret := m.ctrl.Call(m, "Delete", ctx, userId)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockIUserServiceMockRecorder) Delete(userId interface{}) *gomock.Call {
+func (mr *MockIUserServiceMockRecorder) Delete(ctx, userId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockIUserService)(nil).Delete), userId)
-}
-
-// Login mocks base method.
-func (m *MockIUserService) Login(username, password string) (*entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Login", username, password)
-	ret0, _ := ret[0].(*entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Login indicates an expected call of Login.
-func (mr *MockIUserServiceMockRecorder) Login(username, password interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Login", reflect.TypeOf((*MockIUserService)(nil).Login), username, password)
-}
-
-// Register mocks base method.
-func (m *MockIUserService) Register(username, password, email string, role entities.UserRole, scopes int64) (*entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Register", username, password, email, role, scopes)
-	ret0, _ := ret[0].(*entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Register indicates an expected call of Register.
-func (mr *MockIUserServiceMockRecorder) Register(username, password, email, role, scopes interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockIUserService)(nil).Register), username, password, email, role, scopes)
-}
-
-// UpdatePassword mocks base method.
-func (m *MockIUserService) UpdatePassword(userId, password string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdatePassword", userId, password)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdatePassword indicates an expected call of UpdatePassword.
-func (mr *MockIUserServiceMockRecorder) UpdatePassword(userId, password interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePassword", reflect.TypeOf((*MockIUserService)(nil).UpdatePassword), userId, password)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockIUserService)(nil).Delete), ctx, userId)
 }
 
 // UpdateRole mocks base method.
-func (m *MockIUserService) UpdateRole(userId string, role entities.UserRole) error {
+func (m *MockIUserService) UpdateRole(ctx context.Context, userId string, role entities.UserRole) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateRole", userId, role)
+	ret := m.ctrl.Call(m, "UpdateRole", ctx, userId, role)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateRole indicates an expected call of UpdateRole.
-func (mr *MockIUserServiceMockRecorder) UpdateRole(userId, role interface{}) *gomock.Call {
+func (mr *MockIUserServiceMockRecorder) UpdateRole(ctx, userId, role interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockIUserService)(nil).UpdateRole), userId, role)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockIUserService)(nil).UpdateRole), ctx, userId, role)
 }
 
 // UpdateScope mocks base method.
-func (m *MockIUserService) UpdateScope(userId string, scopes []string, isAdded bool) error {
+func (m *MockIUserService) UpdateScope(ctx context.Context, userId string, scopes []string, isAdded bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateScope", userId, scopes, isAdded)
+	ret := m.ctrl.Call(m, "UpdateScope", ctx, userId, scopes, isAdded)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateScope indicates an expected call of UpdateScope.
-func (mr *MockIUserServiceMockRecorder) UpdateScope(userId, scopes, isAdded interface{}) *gomock.Call {
+func (mr *MockIUserServiceMockRecorder) UpdateScope(ctx, userId, scopes, isAdded interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateScope", reflect.TypeOf((*MockIUserService)(nil).UpdateScope), userId, scopes, isAdded)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateScope", reflect.TypeOf((*MockIUserService)(nil).UpdateScope), ctx, userId, scopes, isAdded)
 }
