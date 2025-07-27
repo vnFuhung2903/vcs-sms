@@ -70,7 +70,7 @@ func (s *HealthcheckWorkerSuite) TestHealthcheckWorkerStatusChange() {
 		Return(nil)
 
 	s.mockHealthcheckService.EXPECT().
-		UpdateStatus(gomock.Any(), statusList).
+		UpdateStatus(gomock.Any(), statusList, gomock.Any()).
 		Return(nil)
 
 	s.mockLogger.EXPECT().Info("elasticsearch status updated successfully").AnyTimes()
@@ -114,7 +114,7 @@ func (s *HealthcheckWorkerSuite) TestHealthcheckWorkerContainerUpdateError() {
 		Return(errors.New("update error"))
 
 	s.mockHealthcheckService.EXPECT().
-		UpdateStatus(gomock.Any(), gomock.Any()).
+		UpdateStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil)
 
 	s.mockLogger.EXPECT().Error("failed to update container", gomock.Any()).AnyTimes()
@@ -141,7 +141,7 @@ func (s *HealthcheckWorkerSuite) TestHealthcheckWorkerNoStatusChange() {
 		Return(entities.ContainerOn)
 
 	s.mockHealthcheckService.EXPECT().
-		UpdateStatus(gomock.Any(), gomock.Any()).
+		UpdateStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil)
 
 	s.mockLogger.EXPECT().Info("elasticsearch status updated successfully").AnyTimes()
@@ -167,7 +167,7 @@ func (s *HealthcheckWorkerSuite) TestHealthcheckWorkerUpdateStatusError() {
 		Return(entities.ContainerOn)
 
 	s.mockHealthcheckService.EXPECT().
-		UpdateStatus(gomock.Any(), gomock.Any()).
+		UpdateStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(errors.New("update status error"))
 
 	s.mockLogger.EXPECT().Error("failed to update elasticsearch status", gomock.Any()).AnyTimes()

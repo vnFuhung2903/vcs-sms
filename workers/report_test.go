@@ -1,20 +1,16 @@
-package api
+package workers
 
 import (
-	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/suite"
-
 	"github.com/vnFuhung2903/vcs-sms/dto"
 	"github.com/vnFuhung2903/vcs-sms/entities"
+	"github.com/vnFuhung2903/vcs-sms/mocks/logger"
 	"github.com/vnFuhung2903/vcs-sms/mocks/middlewares"
 	"github.com/vnFuhung2903/vcs-sms/mocks/services"
 )
@@ -22,11 +18,12 @@ import (
 type ReportHandlerSuite struct {
 	suite.Suite
 	ctrl                   *gomock.Controller
+	reportWorker           IReportkWorker
 	mockContainerService   *services.MockIContainerService
 	mockHealthcheckService *services.MockIHealthcheckService
 	mockReportService      *services.MockIReportService
 	mockJWTMiddleware      *middlewares.MockIJWTMiddleware
-	handler                *ReportHandler
+	mockLogger             *logger.MockILogger
 	router                 *gin.Engine
 }
 
@@ -36,6 +33,7 @@ func (s *ReportHandlerSuite) SetupTest() {
 	s.mockHealthcheckService = services.NewMockIHealthcheckService(s.ctrl)
 	s.mockReportService = services.NewMockIReportService(s.ctrl)
 	s.mockJWTMiddleware = middlewares.NewMockIJWTMiddleware(s.ctrl)
+	s.mockLogger = logger.NewMockILogger(s.ctrl)
 
 	s.mockJWTMiddleware.EXPECT().
 		RequireScope("report:mail").
@@ -44,11 +42,7 @@ func (s *ReportHandlerSuite) SetupTest() {
 		}).
 		AnyTimes()
 
-	s.handler = NewReportHandler(s.mockContainerService, s.mockHealthcheckService, s.mockReportService, s.mockJWTMiddleware)
-
-	gin.SetMode(gin.TestMode)
-	s.router = gin.New()
-	s.handler.SetupRoutes(s.router)
+	s.reportWorker = NewReportkWorker(s.mockContainerService, s.mockHealthcheckService, s.mockReportService, "test@example.com", s.mockLogger, 2*time.Second)
 }
 
 func (s *ReportHandlerSuite) TearDownTest() {
@@ -61,8 +55,6 @@ func TestReportHandlerSuite(t *testing.T) {
 
 func (s *ReportHandlerSuite) TestSendEmail() {
 	baseTime := time.Now()
-	endTime := baseTime
-	startTime := baseTime.Add(-4 * time.Hour)
 
 	statusList := map[string][]dto.EsStatus{
 		"container1": {
@@ -105,48 +97,13 @@ func (s *ReportHandlerSuite) TestSendEmail() {
 		SendEmail(gomock.Any(), "test@example.com", 2, 1, 1, 50.0, gomock.Any(), gomock.Any()).
 		Return(nil)
 
-	params := url.Values{}
-	params.Set("email", "test@example.com")
-	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
-	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+	s.mockLogger.EXPECT().Info("daily report emailed successfully").AnyTimes()
+	s.mockLogger.EXPECT().Info("daily report workers stopped").AnyTimes()
 
-	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
-	w := httptest.NewRecorder()
+	s.reportWorker.Start(1)
+	time.Sleep(3 * time.Second)
 
-	s.router.ServeHTTP(w, req)
-	s.Equal(http.StatusOK, w.Code)
-
-	var response dto.APIResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.True(response.Success)
-	s.Equal("REPORT_EMAILED", response.Code)
-}
-
-func (s *ReportHandlerSuite) TestSendEmailInvalidQueryBinding() {
-	req := httptest.NewRequest("GET", "/report/mail?start_time=invalid-datetime", nil)
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-	s.Equal(http.StatusBadRequest, w.Code)
-
-	var response dto.APIResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.NotEmpty(response.Error)
-}
-
-func (s *ReportHandlerSuite) TestSendEmailInvalidDateRange() {
-	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2024-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z", nil)
-	w := httptest.NewRecorder()
-
-	s.router.ServeHTTP(w, req)
-	s.Equal(http.StatusBadRequest, w.Code)
-
-	var response dto.APIResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.NotEmpty(response.Error)
+	s.reportWorker.Stop()
 }
 
 func (s *ReportHandlerSuite) TestSendEmailContainerServiceError() {
@@ -154,23 +111,16 @@ func (s *ReportHandlerSuite) TestSendEmailContainerServiceError() {
 		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: dto.Asc}).
 		Return([]*entities.Container{}, int64(0), errors.New("container service error"))
 
-	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2023-01-01T00:00:00Z", nil)
-	w := httptest.NewRecorder()
+	s.mockLogger.EXPECT().Error("failed to retrieve containers", gomock.Any()).AnyTimes()
+	s.mockLogger.EXPECT().Info("daily report workers stopped").AnyTimes()
 
-	s.router.ServeHTTP(w, req)
-	s.Equal(http.StatusInternalServerError, w.Code)
+	s.reportWorker.Start(1)
+	time.Sleep(3 * time.Second)
 
-	var response dto.APIResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("container service error", response.Error)
+	s.reportWorker.Stop()
 }
 
 func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceError() {
-	baseTime := time.Now()
-	endTime := baseTime
-	startTime := baseTime.Add(-4 * time.Hour)
-
 	containers := []*entities.Container{
 		{ContainerId: "container1", ContainerName: "test1", Status: entities.ContainerOn},
 	}
@@ -183,27 +133,17 @@ func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceError() {
 		GetEsStatus(gomock.Any(), []string{"container1"}, 10000, gomock.Any(), gomock.Any(), dto.Asc).
 		Return(map[string][]dto.EsStatus{}, errors.New("elasticsearch error"))
 
-	params := url.Values{}
-	params.Set("email", "test@example.com")
-	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
-	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+	s.mockLogger.EXPECT().Error("failed to retrieve elasticsearch status", gomock.Any()).AnyTimes()
+	s.mockLogger.EXPECT().Info("daily report workers stopped").AnyTimes()
 
-	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
-	w := httptest.NewRecorder()
+	s.reportWorker.Start(1)
+	time.Sleep(3 * time.Second)
 
-	s.router.ServeHTTP(w, req)
-	s.Equal(http.StatusInternalServerError, w.Code)
-
-	var response dto.APIResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("elasticsearch error", response.Error)
+	s.reportWorker.Stop()
 }
 
 func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceOverlapError() {
 	baseTime := time.Now()
-	endTime := baseTime
-	startTime := endTime.Add(-4 * time.Hour)
 	statusList := map[string][]dto.EsStatus{
 		"container1": {
 			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-210 * time.Minute)},
@@ -228,27 +168,17 @@ func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceOverlapError() {
 		GetEsStatus(gomock.Any(), []string{"container1"}, 1, gomock.Any(), gomock.Any(), dto.Asc).
 		Return(map[string][]dto.EsStatus{}, errors.New("elasticsearch error"))
 
-	params := url.Values{}
-	params.Set("email", "test@example.com")
-	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
-	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+	s.mockLogger.EXPECT().Error("failed to retrieve elasticsearch status", gomock.Any()).AnyTimes()
+	s.mockLogger.EXPECT().Info("daily report workers stopped").AnyTimes()
 
-	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
-	w := httptest.NewRecorder()
+	s.reportWorker.Start(1)
+	time.Sleep(3 * time.Second)
 
-	s.router.ServeHTTP(w, req)
-	s.Equal(http.StatusInternalServerError, w.Code)
-
-	var response dto.APIResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("elasticsearch error", response.Error)
+	s.reportWorker.Stop()
 }
 
 func (s *ReportHandlerSuite) TestSendEmailSendEmailServiceError() {
 	baseTime := time.Now()
-	endTime := baseTime
-	startTime := endTime.Add(-4 * time.Hour)
 	statusList := map[string][]dto.EsStatus{
 		"container1": {
 			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-210 * time.Minute)},
@@ -285,20 +215,11 @@ func (s *ReportHandlerSuite) TestSendEmailSendEmailServiceError() {
 		SendEmail(gomock.Any(), "test@example.com", 1, 1, 0, 100.0, gomock.Any(), gomock.Any()).
 		Return(errors.New("service error"))
 
-	params := url.Values{}
-	params.Set("email", "test@example.com")
-	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
-	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+	s.mockLogger.EXPECT().Error("failed to email daily report", gomock.Any()).AnyTimes()
+	s.mockLogger.EXPECT().Info("daily report workers stopped").AnyTimes()
 
-	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
-	w := httptest.NewRecorder()
+	s.reportWorker.Start(1)
+	time.Sleep(3 * time.Second)
 
-	s.router.ServeHTTP(w, req)
-
-	s.Equal(http.StatusInternalServerError, w.Code)
-
-	var response dto.APIResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	s.NoError(err)
-	s.Equal("service error", response.Error)
+	s.reportWorker.Stop()
 }
