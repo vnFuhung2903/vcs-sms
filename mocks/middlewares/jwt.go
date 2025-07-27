@@ -5,7 +5,6 @@
 package middlewares
 
 import (
-	context "context"
 	reflect "reflect"
 
 	gin "github.com/gin-gonic/gin"
@@ -33,20 +32,6 @@ func NewMockIJWTMiddleware(ctrl *gomock.Controller) *MockIJWTMiddleware {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockIJWTMiddleware) EXPECT() *MockIJWTMiddlewareMockRecorder {
 	return m.recorder
-}
-
-// GenerateJWT mocks base method.
-func (m *MockIJWTMiddleware) GenerateJWT(context context.Context, userId, username string, scope []string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenerateJWT", context, userId, username, scope)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// GenerateJWT indicates an expected call of GenerateJWT.
-func (mr *MockIJWTMiddlewareMockRecorder) GenerateJWT(context, userId, username, scope interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateJWT", reflect.TypeOf((*MockIJWTMiddleware)(nil).GenerateJWT), context, userId, username, scope)
 }
 
 // RequireScope mocks base method.

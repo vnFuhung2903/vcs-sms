@@ -1,11 +1,11 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -28,7 +28,6 @@ type ReportHandlerSuite struct {
 	mockJWTMiddleware      *middlewares.MockIJWTMiddleware
 	handler                *ReportHandler
 	router                 *gin.Engine
-	ctx                    context.Context
 }
 
 func (s *ReportHandlerSuite) SetupTest() {
@@ -37,7 +36,6 @@ func (s *ReportHandlerSuite) SetupTest() {
 	s.mockHealthcheckService = services.NewMockIHealthcheckService(s.ctrl)
 	s.mockReportService = services.NewMockIReportService(s.ctrl)
 	s.mockJWTMiddleware = middlewares.NewMockIJWTMiddleware(s.ctrl)
-	s.ctx = context.Background()
 
 	s.mockJWTMiddleware.EXPECT().
 		RequireScope("report:mail").
@@ -62,41 +60,67 @@ func TestReportHandlerSuite(t *testing.T) {
 }
 
 func (s *ReportHandlerSuite) TestSendEmail() {
-	startTime := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
-	endTime := time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC)
+	baseTime := time.Now()
+	endTime := baseTime
+	startTime := baseTime.Add(-4 * time.Hour)
+
+	statusList := map[string][]dto.EsStatus{
+		"container1": {
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-210 * time.Minute)},
+			{ContainerId: "container1", Status: entities.ContainerOff, Uptime: int64(1800), LastUpdated: baseTime.Add(-3 * time.Hour)},
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-2 * time.Hour)},
+		},
+		"container2": {
+			{ContainerId: "container2", Status: entities.ContainerOff, Uptime: int64(7200), LastUpdated: baseTime.Add(-1 * time.Minute)},
+		},
+	}
+
+	overlapStatusList := map[string][]dto.EsStatus{
+		"container1": {},
+		"container2": {},
+	}
 
 	containers := []*entities.Container{
 		{ContainerId: "container1", ContainerName: "test1", Status: entities.ContainerOn},
 		{ContainerId: "container2", ContainerName: "test2", Status: entities.ContainerOff},
 	}
 
-	esResults := map[string][]dto.EsStatus{
-		"container1": {{ContainerId: "container1", Status: entities.ContainerOn}},
-		"container2": {{ContainerId: "container2", Status: entities.ContainerOff}},
-	}
-
 	s.mockContainerService.EXPECT().
-		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"}).
-		Return(containers, int64(2), nil)
+		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: dto.Asc}).
+		Return(containers, int64(len(containers)), nil)
 
 	s.mockHealthcheckService.EXPECT().
-		GetEsStatus(gomock.Any(), []string{"container1", "container2"}, 200, startTime, endTime).
-		Return(esResults, nil)
+		GetEsStatus(gomock.Any(), []string{"container1", "container2"}, 10000, gomock.Any(), gomock.Any(), dto.Asc).
+		Return(statusList, nil)
+
+	s.mockHealthcheckService.EXPECT().
+		GetEsStatus(gomock.Any(), []string{"container1", "container2"}, 1, gomock.Any(), gomock.Any(), dto.Asc).
+		Return(overlapStatusList, nil)
 
 	s.mockReportService.EXPECT().
-		CalculateReportStatistic(containers, esResults).
+		CalculateReportStatistic(statusList, overlapStatusList, gomock.Any(), gomock.Any()).
 		Return(1, 1, 50.0)
 
 	s.mockReportService.EXPECT().
-		SendEmail(gomock.Any(), "test@example.com", 2, 1, 1, 50.0, startTime, endTime).
+		SendEmail(gomock.Any(), "test@example.com", 2, 1, 1, 50.0, gomock.Any(), gomock.Any()).
 		Return(nil)
 
-	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2023-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z", nil)
+	params := url.Values{}
+	params.Set("email", "test@example.com")
+	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
+	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+
+	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusOK, w.Code)
+
+	var response dto.APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	s.NoError(err)
+	s.True(response.Success)
+	s.Equal("REPORT_EMAILED", response.Code)
 }
 
 func (s *ReportHandlerSuite) TestSendEmailInvalidQueryBinding() {
@@ -104,10 +128,9 @@ func (s *ReportHandlerSuite) TestSendEmailInvalidQueryBinding() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.NotEmpty(response.Error)
@@ -118,10 +141,9 @@ func (s *ReportHandlerSuite) TestSendEmailInvalidDateRange() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.NotEmpty(response.Error)
@@ -129,20 +151,19 @@ func (s *ReportHandlerSuite) TestSendEmailInvalidDateRange() {
 
 func (s *ReportHandlerSuite) TestSendEmailContainerServiceError() {
 	s.mockContainerService.EXPECT().
-		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"}).
-		Return([]*entities.Container{}, int64(0), errors.New("database connection failed"))
+		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: dto.Asc}).
+		Return([]*entities.Container{}, int64(0), errors.New("container service error"))
 
 	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2023-01-01T00:00:00Z", nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusInternalServerError, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal("database connection failed", response.Error)
+	s.Equal("container service error", response.Error)
 }
 
 func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceError() {
@@ -154,63 +175,129 @@ func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceError() {
 	}
 
 	s.mockContainerService.EXPECT().
-		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"}).
-		Return(containers, int64(1), nil)
+		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: dto.Asc}).
+		Return(containers, int64(len(containers)), nil)
 
 	s.mockHealthcheckService.EXPECT().
-		GetEsStatus(gomock.Any(), []string{"container1"}, 200, startTime, endTime).
-		Return(map[string][]dto.EsStatus{}, errors.New("elasticsearch connection failed"))
+		GetEsStatus(gomock.Any(), []string{"container1"}, 10000, gomock.Any(), gomock.Any(), dto.Asc).
+		Return(map[string][]dto.EsStatus{}, errors.New("elasticsearch error"))
 
-	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2023-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z", nil)
+	params := url.Values{}
+	params.Set("email", "test@example.com")
+	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
+	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+
+	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusInternalServerError, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal("elasticsearch connection failed", response.Error)
+	s.Equal("elasticsearch error", response.Error)
 }
 
-func (s *ReportHandlerSuite) TestSendEmailSendEmailServiceError() {
-	startTime := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
-	endTime := time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC)
+func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceOverlapError() {
+	baseTime := time.Now()
+	endTime := baseTime
+	startTime := endTime.Add(-4 * time.Hour)
+	statusList := map[string][]dto.EsStatus{
+		"container1": {
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-210 * time.Minute)},
+			{ContainerId: "container1", Status: entities.ContainerOff, Uptime: int64(1800), LastUpdated: baseTime.Add(-3 * time.Hour)},
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-2 * time.Hour)},
+		},
+	}
 
 	containers := []*entities.Container{
 		{ContainerId: "container1", ContainerName: "test1", Status: entities.ContainerOn},
 	}
 
-	esResults := map[string][]dto.EsStatus{
-		"container1": {{ContainerId: "container1", Status: entities.ContainerOn}},
+	s.mockContainerService.EXPECT().
+		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: dto.Asc}).
+		Return(containers, int64(len(containers)), nil)
+
+	s.mockHealthcheckService.EXPECT().
+		GetEsStatus(gomock.Any(), []string{"container1"}, 10000, gomock.Any(), gomock.Any(), dto.Asc).
+		Return(statusList, nil)
+
+	s.mockHealthcheckService.EXPECT().
+		GetEsStatus(gomock.Any(), []string{"container1"}, 1, gomock.Any(), gomock.Any(), dto.Asc).
+		Return(map[string][]dto.EsStatus{}, errors.New("elasticsearch error"))
+
+	params := url.Values{}
+	params.Set("email", "test@example.com")
+	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
+	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+
+	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
+	w := httptest.NewRecorder()
+
+	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusInternalServerError, w.Code)
+
+	var response dto.APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	s.NoError(err)
+	s.Equal("elasticsearch error", response.Error)
+}
+
+func (s *ReportHandlerSuite) TestSendEmailSendEmailServiceError() {
+	baseTime := time.Now()
+	endTime := baseTime
+	startTime := endTime.Add(-4 * time.Hour)
+	statusList := map[string][]dto.EsStatus{
+		"container1": {
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-210 * time.Minute)},
+			{ContainerId: "container1", Status: entities.ContainerOff, Uptime: int64(1800), LastUpdated: baseTime.Add(-3 * time.Hour)},
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-2 * time.Hour)},
+		},
+	}
+
+	overlapStatusList := map[string][]dto.EsStatus{
+		"container1": {},
+	}
+
+	containers := []*entities.Container{
+		{ContainerId: "container1", ContainerName: "test1", Status: entities.ContainerOn},
 	}
 
 	s.mockContainerService.EXPECT().
-		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: "desc"}).
-		Return(containers, int64(1), nil)
+		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: dto.Asc}).
+		Return(containers, int64(len(containers)), nil)
 
 	s.mockHealthcheckService.EXPECT().
-		GetEsStatus(gomock.Any(), []string{"container1"}, 200, startTime, endTime).
-		Return(esResults, nil)
+		GetEsStatus(gomock.Any(), []string{"container1"}, 10000, gomock.Any(), gomock.Any(), dto.Asc).
+		Return(statusList, nil)
+
+	s.mockHealthcheckService.EXPECT().
+		GetEsStatus(gomock.Any(), []string{"container1"}, 1, gomock.Any(), gomock.Any(), dto.Asc).
+		Return(overlapStatusList, nil)
 
 	s.mockReportService.EXPECT().
-		CalculateReportStatistic(containers, esResults).
+		CalculateReportStatistic(statusList, overlapStatusList, gomock.Any(), gomock.Any()).
 		Return(1, 0, 100.0)
 
 	s.mockReportService.EXPECT().
-		SendEmail(gomock.Any(), "test@example.com", 1, 1, 0, 100.0, startTime, endTime).
-		Return(errors.New("email service unavailable"))
+		SendEmail(gomock.Any(), "test@example.com", 1, 1, 0, 100.0, gomock.Any(), gomock.Any()).
+		Return(errors.New("service error"))
 
-	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2023-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z", nil)
+	params := url.Values{}
+	params.Set("email", "test@example.com")
+	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
+	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+
+	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
 
 	s.Equal(http.StatusInternalServerError, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal("email service unavailable", response.Error)
+	s.Equal("service error", response.Error)
 }

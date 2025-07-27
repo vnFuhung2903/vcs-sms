@@ -65,7 +65,7 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -76,7 +76,7 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to create container",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -110,7 +110,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -120,7 +120,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -132,7 +132,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -142,7 +142,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -153,7 +153,7 @@ func (h *ContainerHandler) View(c *gin.Context) {
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to retrieve containers",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -191,7 +191,7 @@ func (h *ContainerHandler) Update(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -202,7 +202,7 @@ func (h *ContainerHandler) Update(c *gin.Context) {
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to update container",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -232,7 +232,7 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to delete container",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -263,7 +263,7 @@ func (h *ContainerHandler) Import(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -275,7 +275,7 @@ func (h *ContainerHandler) Import(c *gin.Context) {
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to import containers",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -310,7 +310,7 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -320,7 +320,7 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -332,7 +332,7 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -342,7 +342,7 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -353,7 +353,7 @@ func (h *ContainerHandler) Export(c *gin.Context) {
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to export containers",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}

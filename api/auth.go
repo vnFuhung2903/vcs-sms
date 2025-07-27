@@ -20,11 +20,12 @@ func NewAuthHandler(authService services.IAuthService, jwtMiddleware middlewares
 }
 
 func (h *AuthHandler) SetupRoutes(r *gin.Engine) {
-	authRoutes := r.Group("/users")
+	authRoutes := r.Group("/auth")
 	{
 		authRoutes.POST("/register", h.Register)
 		authRoutes.POST("/login", h.Login)
-		authRoutes.PUT("/update/password/:id", h.UpdatePassword)
+		authRoutes.PUT("/update/password/:userId", h.UpdatePassword)
+		authRoutes.POST("/refresh/:userId", h.RefreshAccessToken)
 	}
 }
 
@@ -46,7 +47,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -55,7 +56,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	_, err := h.authService.Register(req.Username, req.Password, req.Email, req.Role, utils.ScopesToHashMap(scopes))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
-			Error: err.Error(),
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to register user",
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -85,15 +89,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
 
 	accessToken, err := h.authService.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, dto.APIResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to login",
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -122,31 +129,54 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Router /users/update/password/{id} [put]
 func (h *AuthHandler) UpdatePassword(c *gin.Context) {
-	userId := c.GetString("userId")
+	userId := c.Param("userId")
 	var req dto.UpdatePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, dto.APIResponse{
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
 
-	if err := h.authService.UpdatePassword(userId, req.CurrentPassword, req.NewPassword); err != nil {
+	if err := h.authService.UpdatePassword(c.Request.Context(), userId, req.CurrentPassword, req.NewPassword); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to update password",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, dto.APIResponse{
 		Success: true,
-		Code:    "UPDATE_SUCCESS",
+		Code:    "PASSWORD_UPDATE_SUCCESS",
 		Message: "Password updated successfully",
+	})
+}
+
+func (h *AuthHandler) RefreshAccessToken(c *gin.Context) {
+	userId := c.Param("userId")
+	accessToken, err := h.authService.RefreshAccessToken(c.Request.Context(), userId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to update password",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Code:    "REFRESH_SUCCESS",
+		Message: "Access token refreshed successfully",
+		Data: dto.LoginResponse{
+			AccessToken: accessToken,
+		},
 	})
 }

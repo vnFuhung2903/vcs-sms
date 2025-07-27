@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
@@ -49,7 +48,7 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -63,20 +62,20 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   errors.New("start time cannot be after end time"),
+			Error:   "start time cannot be after end time",
 		})
 		return
 	}
 
 	containers, total, err := h.containerService.View(c.Request.Context(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{
-		Field: "created_at", Order: dto.Asc,
+		Field: "container_id", Order: dto.Asc,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to retrieve containers",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -86,40 +85,43 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		ids = append(ids, container.ContainerId)
 	}
 
-	statusList, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 10000, req.StartTime, req.EndTime, dto.Dsc)
+	statusList, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 10000, req.StartTime, req.EndTime, dto.Asc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to retrieve healthcheck status",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
 
 	overlapStatusList, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 1, req.EndTime, time.Now(), dto.Asc)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to retrieve overlap healthcheck status",
+			Error:   err.Error(),
 		})
 		return
 	}
 
-	onCount, offCount, totalUptime := h.reportService.CalculateReportStatistic(containers, statusList, overlapStatusList)
+	onCount, offCount, totalUptime := h.reportService.CalculateReportStatistic(statusList, overlapStatusList, req.StartTime, req.EndTime)
 
 	if err := h.reportService.SendEmail(c.Request.Context(), req.Email, int(total), onCount, offCount, totalUptime, req.StartTime, req.EndTime); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to send email",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, dto.APIResponse{
 		Success: true,
-		Code:    "EMAIL_SENT",
-		Message: "Email sent successfully",
+		Code:    "REPORT_EMAILED",
+		Message: "Report emailed successfully",
 	})
 }

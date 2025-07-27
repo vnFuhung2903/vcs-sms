@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"mime/multipart"
@@ -28,14 +27,12 @@ type ContainerHandlerSuite struct {
 	mockJWTMiddleware    *middlewares.MockIJWTMiddleware
 	handler              *ContainerHandler
 	router               *gin.Engine
-	ctx                  context.Context
 }
 
 func (s *ContainerHandlerSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockContainerService = services.NewMockIContainerService(s.ctrl)
 	s.mockJWTMiddleware = middlewares.NewMockIJWTMiddleware(s.ctrl)
-	s.ctx = context.Background()
 
 	s.mockJWTMiddleware.EXPECT().
 		RequireScope(gomock.Any()).
@@ -81,8 +78,12 @@ func (s *ContainerHandlerSuite) TestCreate() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusCreated, w.Code)
 
-	s.Equal(http.StatusOK, w.Code)
+	var response dto.APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	s.NoError(err)
+	s.Equal("CONTAINER_CREATED", response.Code)
 }
 
 func (s *ContainerHandlerSuite) TestCreateInvalidRequestBody() {
@@ -91,10 +92,9 @@ func (s *ContainerHandlerSuite) TestCreateInvalidRequestBody() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.NotEmpty(response.Error)
@@ -116,10 +116,9 @@ func (s *ContainerHandlerSuite) TestCreateServiceError() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusInternalServerError, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Equal("service error", response.Error)
@@ -139,14 +138,21 @@ func (s *ContainerHandlerSuite) TestView() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusOK, w.Code)
 
-	var response dto.ViewResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal(2, len(response.Data))
-	s.Equal(int64(2), response.Total)
+	s.Equal("CONTAINERS_RETRIEVED", response.Code)
+
+	raw, err := json.Marshal(response.Data)
+	s.NoError(err)
+
+	var data dto.ViewResponse
+	err = json.Unmarshal(raw, &data)
+	s.NoError(err)
+	s.Equal(2, len(data.Data))
+	s.Equal(int64(2), data.Total)
 }
 
 func (s *ContainerHandlerSuite) TestViewInvalidFromParameter() {
@@ -154,10 +160,9 @@ func (s *ContainerHandlerSuite) TestViewInvalidFromParameter() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Contains(response.Error, "invalid syntax")
@@ -168,10 +173,9 @@ func (s *ContainerHandlerSuite) TestViewInvalidToParameter() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Contains(response.Error, "invalid syntax")
@@ -182,10 +186,9 @@ func (s *ContainerHandlerSuite) TestViewInvalidFilterParameter() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Contains(response.Error, "Field validation for 'Status' failed on the 'oneof' tag")
@@ -196,10 +199,9 @@ func (s *ContainerHandlerSuite) TestViewInvalidSortParameter() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Contains(response.Error, "Field validation for 'Order' failed on the 'oneof' tag")
@@ -208,19 +210,18 @@ func (s *ContainerHandlerSuite) TestViewInvalidSortParameter() {
 func (s *ContainerHandlerSuite) TestViewServiceError() {
 	s.mockContainerService.EXPECT().
 		View(gomock.Any(), gomock.Any(), 1, 10, gomock.Any()).
-		Return([]*entities.Container{}, int64(0), errors.New("database error"))
+		Return([]*entities.Container{}, int64(0), errors.New("service error"))
 
 	req := httptest.NewRequest("GET", "/containers/view?from=1&to=10&field=container_id&order=desc", nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusInternalServerError, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal("database error", response.Error)
+	s.Equal("service error", response.Error)
 }
 
 func (s *ContainerHandlerSuite) TestUpdate() {
@@ -238,8 +239,12 @@ func (s *ContainerHandlerSuite) TestUpdate() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusOK, w.Code)
+
+	var response dto.APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	s.NoError(err)
+	s.Equal("CONTAINER_UPDATED", response.Code)
 }
 
 func (s *ContainerHandlerSuite) TestUpdateInvalidRequestBody() {
@@ -248,10 +253,9 @@ func (s *ContainerHandlerSuite) TestUpdateInvalidRequestBody() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.NotEmpty(response.Error)
@@ -260,7 +264,7 @@ func (s *ContainerHandlerSuite) TestUpdateInvalidRequestBody() {
 func (s *ContainerHandlerSuite) TestUpdateServiceError() {
 	s.mockContainerService.EXPECT().
 		Update(gomock.Any(), "container-id", gomock.Any()).
-		Return(errors.New("update failed"))
+		Return(errors.New("service error"))
 
 	updateData := dto.ContainerUpdate{
 		Status: entities.ContainerOff,
@@ -272,13 +276,12 @@ func (s *ContainerHandlerSuite) TestUpdateServiceError() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusInternalServerError, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal("update failed", response.Error)
+	s.Equal("service error", response.Error)
 }
 
 func (s *ContainerHandlerSuite) TestDelete() {
@@ -290,14 +293,18 @@ func (s *ContainerHandlerSuite) TestDelete() {
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusOK, w.Code)
+
+	var response dto.APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	s.NoError(err)
+	s.Equal("CONTAINER_DELETED", response.Code)
 }
 
 func (s *ContainerHandlerSuite) TestDeleteServiceError() {
 	s.mockContainerService.EXPECT().
 		Delete(gomock.Any(), "container-id").
-		Return(errors.New("delete failed"))
+		Return(errors.New("service error"))
 
 	req := httptest.NewRequest("DELETE", "/containers/delete/container-id", nil)
 	w := httptest.NewRecorder()
@@ -306,10 +313,10 @@ func (s *ContainerHandlerSuite) TestDeleteServiceError() {
 
 	s.Equal(http.StatusInternalServerError, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal("delete failed", response.Error)
+	s.Equal("service error", response.Error)
 }
 
 func (s *ContainerHandlerSuite) TestExport() {
@@ -338,7 +345,7 @@ func (s *ContainerHandlerSuite) TestExportInvalidFromParameter() {
 
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Contains(response.Error, "invalid syntax")
@@ -352,7 +359,7 @@ func (s *ContainerHandlerSuite) TestExportInvalidToParameter() {
 
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Contains(response.Error, "invalid syntax")
@@ -361,7 +368,7 @@ func (s *ContainerHandlerSuite) TestExportInvalidToParameter() {
 func (s *ContainerHandlerSuite) TestExportServiceError() {
 	s.mockContainerService.EXPECT().
 		Export(gomock.Any(), gomock.Any(), 1, -1, gomock.Any()).
-		Return([]byte{}, errors.New("export failed"))
+		Return([]byte{}, errors.New("service error"))
 
 	req := httptest.NewRequest("GET", "/containers/export?field=container_id&order=desc", nil)
 	w := httptest.NewRecorder()
@@ -370,10 +377,10 @@ func (s *ContainerHandlerSuite) TestExportServiceError() {
 
 	s.Equal(http.StatusInternalServerError, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal("export failed", response.Error)
+	s.Equal("service error", response.Error)
 }
 
 func (s *ContainerHandlerSuite) TestExportInvalidFilterParameter() {
@@ -384,7 +391,7 @@ func (s *ContainerHandlerSuite) TestExportInvalidFilterParameter() {
 
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Contains(response.Error, "Field validation for 'Status' failed on the 'oneof' tag")
@@ -398,7 +405,7 @@ func (s *ContainerHandlerSuite) TestExportInvalidSortParameter() {
 
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Contains(response.Error, "Field validation for 'Order' failed on the 'oneof' tag")
@@ -411,7 +418,7 @@ func (s *ContainerHandlerSuite) TestImport() {
 	part.Write([]byte("id,name,status\n1,test,running"))
 	writer.Close()
 
-	response := &dto.ImportResponse{
+	result := &dto.ImportResponse{
 		SuccessCount:      1,
 		SuccessContainers: []string{"test"},
 		FailedCount:       0,
@@ -420,20 +427,28 @@ func (s *ContainerHandlerSuite) TestImport() {
 
 	s.mockContainerService.EXPECT().
 		Import(gomock.Any(), gomock.Any()).
-		Return(response, nil)
+		Return(result, nil)
 
 	req := httptest.NewRequest("POST", "/containers/import", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
-
 	s.Equal(http.StatusOK, w.Code)
 
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal(1, response.SuccessCount)
-	s.Equal(0, response.FailedCount)
+	s.Equal("CONTAINERS_IMPORTED", response.Code)
+
+	raw, err := json.Marshal(response.Data)
+	s.NoError(err)
+
+	var data dto.ImportResponse
+	err = json.Unmarshal(raw, &data)
+	s.NoError(err)
+	s.Equal(1, data.SuccessCount)
+	s.Equal(0, data.FailedCount)
 }
 
 func (s *ContainerHandlerSuite) TestImportMissingFile() {
@@ -445,7 +460,7 @@ func (s *ContainerHandlerSuite) TestImportMissingFile() {
 
 	s.Equal(http.StatusBadRequest, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.Contains(response.Error, "no multipart boundary param in Content-Type")
@@ -460,7 +475,7 @@ func (s *ContainerHandlerSuite) TestImportServiceError() {
 
 	s.mockContainerService.EXPECT().
 		Import(gomock.Any(), gomock.Any()).
-		Return((*dto.ImportResponse)(nil), errors.New("import failed"))
+		Return((*dto.ImportResponse)(nil), errors.New("service error"))
 
 	req := httptest.NewRequest("POST", "/containers/import", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -470,8 +485,8 @@ func (s *ContainerHandlerSuite) TestImportServiceError() {
 
 	s.Equal(http.StatusInternalServerError, w.Code)
 
-	var response dto.ErrorResponse
+	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
-	s.Equal("import failed", response.Error)
+	s.Equal("service error", response.Error)
 }

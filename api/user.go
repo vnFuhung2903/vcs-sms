@@ -21,9 +21,9 @@ func NewUserHandler(userService services.IUserService, jwtMiddleware middlewares
 func (h *UserHandler) SetupRoutes(r *gin.Engine) {
 	userRoutes := r.Group("/users", h.jwtMiddleware.RequireScope("user:manage"))
 	{
-		userRoutes.PUT("/update/role/:id", h.UpdateRole)
-		userRoutes.PUT("/update/scope/:id", h.UpdateScope)
-		userRoutes.DELETE("/delete/:id", h.Delete)
+		userRoutes.PUT("/update/role", h.UpdateRole)
+		userRoutes.PUT("/update/scope", h.UpdateScope)
+		userRoutes.DELETE("/delete", h.Delete)
 	}
 }
 
@@ -47,17 +47,17 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
 
-	if err := h.userService.UpdateRole(req.UserId, req.Role); err != nil {
+	if err := h.userService.UpdateRole(c.Request.Context(), req.UserId, req.Role); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to update user role",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -89,17 +89,17 @@ func (h *UserHandler) UpdateScope(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
 
-	if err := h.userService.UpdateScope(req.UserId, req.Scopes, req.IsAdded); err != nil {
+	if err := h.userService.UpdateScope(c.Request.Context(), req.UserId, req.Scopes, req.IsAdded); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to update user scope",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -128,17 +128,17 @@ func (h *UserHandler) Delete(c *gin.Context) {
 			Success: false,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request data",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
 
-	if err := h.userService.Delete(req.UserId); err != nil {
+	if err := h.userService.Delete(c.Request.Context(), req.UserId); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to delete user",
-			Error:   err,
+			Error:   err.Error(),
 		})
 		return
 	}
