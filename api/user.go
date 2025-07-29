@@ -33,13 +33,12 @@ func (h *UserHandler) SetupRoutes(r *gin.Engine) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param id path string true "User ID"
-// @Param body body dto.UpdateRoleRequest true "New role"
+// @Param body body dto.UpdateRoleRequest true "User ID and new role"
 // @Success 200 {object} dto.APIResponse "Role updated successfully"
 // @Failure 400 {object} dto.APIResponse "Bad request"
 // @Failure 500 {object} dto.APIResponse "Internal server error"
-// @Security ApiKeyAuth
-// @Router /users/update/role/{id} [put]
+// @Security BearerAuth
+// @Router /users/update/role [put]
 func (h *UserHandler) UpdateRole(c *gin.Context) {
 	var req dto.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -75,13 +74,12 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param id path string true "User ID"
-// @Param body body dto.UpdateScopeRequest true "New scope configuration"
+// @Param body body dto.UpdateScopeRequest true "User ID, scopes, and whether to add or remove"
 // @Success 200 {object} dto.APIResponse "Scope updated successfully"
 // @Failure 400 {object} dto.APIResponse "Bad request"
 // @Failure 500 {object} dto.APIResponse "Internal server error"
-// @Security ApiKeyAuth
-// @Router /users/update/scope/{id} [put]
+// @Security BearerAuth
+// @Router /users/update/scope [put]
 func (h *UserHandler) UpdateScope(c *gin.Context) {
 	var req dto.UpdateScopeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -115,12 +113,14 @@ func (h *UserHandler) UpdateScope(c *gin.Context) {
 // @Summary Delete a user
 // @Description Remove a user from the system (admin only)
 // @Tags users
+// @Accept json
 // @Produce json
-// @Param id path string true "User ID"
+// @Param body body dto.DeleteRequest true "User ID to delete"
 // @Success 200 {object} dto.APIResponse "User deleted successfully"
+// @Failure 400 {object} dto.APIResponse "Bad request"
 // @Failure 500 {object} dto.APIResponse "Internal server error"
-// @Security ApiKeyAuth
-// @Router /users/delete/{id} [delete]
+// @Security BearerAuth
+// @Router /users/delete [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
 	var req dto.DeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -29,7 +29,7 @@ import (
 // @description Container Management System API
 // @host localhost:8080
 // @BasePath /
-// @securityDefinitions.apikey ApiKeyAuth
+// @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
 func main() {
@@ -78,14 +78,24 @@ func main() {
 	reportHandler := api.NewReportHandler(containerService, healthcheckService, reportService, jwtMiddleware)
 	userHandler := api.NewUserHandler(userService, jwtMiddleware)
 
-	esWorker := workers.NewHealthcheckWorker(
+	healthcheckWorker := workers.NewHealthcheckWorker(
 		dockerClient,
 		containerService,
 		healthcheckService,
 		logger,
 		10*time.Second,
 	)
-	esWorker.Start(1)
+	healthcheckWorker.Start(1)
+
+	reportWorker := workers.NewReportkWorker(
+		containerService,
+		healthcheckService,
+		reportService,
+		"hung29032004@gmail.com",
+		logger,
+		24*time.Hour,
+	)
+	reportWorker.Start(1)
 
 	r := gin.Default()
 	authHandler.SetupRoutes(r)
@@ -100,7 +110,8 @@ func main() {
 		<-quit
 
 		logger.Info("Shutting down...")
-		esWorker.Stop()
+		healthcheckWorker.Stop()
+		reportWorker.Stop()
 		os.Exit(0)
 	}()
 	if err := r.Run(":8080"); err != nil {

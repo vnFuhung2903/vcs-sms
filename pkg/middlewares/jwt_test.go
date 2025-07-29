@@ -249,6 +249,35 @@ func (s *JWTMiddlewareSuite) TestRequireScopeInsufficientScope() {
 	s.Equal("Insufficient scope", response["error"])
 }
 
+func (s *JWTMiddlewareSuite) TestRequireScopeNoScope() {
+	claims := jwt.MapClaims{
+		"sub":   "123",
+		"name":  "testuser",
+		"scope": []interface{}{"write"},
+		"exp":   time.Now().Add(time.Hour).Unix(),
+		"iat":   time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(s.testSecret))
+	s.Require().NoError(err)
+
+	s.router.GET("/test", s.jwtMiddleware.RequireScope(""), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	req, _ := http.NewRequest("GET", "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+	w := httptest.NewRecorder()
+
+	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	s.NoError(err)
+	s.Equal("success", response["message"])
+}
+
 func (s *JWTMiddlewareSuite) TestRequireScopeMissingUserId() {
 	claims := jwt.MapClaims{
 		"name":  "testuser",

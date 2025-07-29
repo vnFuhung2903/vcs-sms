@@ -15,14 +15,191 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/auth/login": {
+            "post": {
+                "description": "Login and receive JWT token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login with username and password",
+                "parameters": [
+                    {
+                        "description": "User login credentials",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Login successful",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Refresh the access token for the currently authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh access token",
+                "responses": {
+                    "200": {
+                        "description": "Access token refreshed successfully",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "description": "Register a user and return a JWT token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "User registration request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "User registered successfully",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/update/password": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the password of the currently authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Update own password",
+                "parameters": [
+                    {
+                        "description": "New password request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdatePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password updated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/containers/create": {
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Create a container with ID, name, status, and IPv4",
+                "description": "Create a container with name and image",
                 "consumes": [
                     "application/json"
                 ],
@@ -32,7 +209,7 @@ const docTemplate = `{
                 "tags": [
                     "containers"
                 ],
-                "summary": "Create new container",
+                "summary": "Create a new container",
                 "parameters": [
                     {
                         "description": "Container creation request",
@@ -45,22 +222,22 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
+                    "201": {
                         "description": "Container created successfully",
                         "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
@@ -70,10 +247,10 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Delete a container by ID",
+                "description": "Delete a container by its ID",
                 "produces": [
                     "application/json"
                 ],
@@ -94,13 +271,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Container deleted successfully",
                         "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
@@ -110,17 +287,17 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Export containers to Excel with optional filters and sort",
+                "description": "Export containers with optional filters and sorting to an Excel file",
                 "produces": [
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ],
                 "tags": [
                     "containers"
                 ],
-                "summary": "Export containers",
+                "summary": "Export containers to Excel",
                 "parameters": [
                     {
                         "type": "integer",
@@ -154,7 +331,7 @@ const docTemplate = `{
                             "desc"
                         ],
                         "type": "string",
-                        "description": "Sort order (asc or desc)",
+                        "description": "Sort order",
                         "name": "order",
                         "in": "query"
                     }
@@ -169,13 +346,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
@@ -185,10 +362,10 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Import containers using an Excel file upload",
+                "description": "Import containers using an Excel (.xlsx) file",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -198,11 +375,11 @@ const docTemplate = `{
                 "tags": [
                     "containers"
                 ],
-                "summary": "Import containers from file",
+                "summary": "Import containers from Excel",
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "Excel file to import containers",
+                        "description": "Excel file containing container data",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -210,21 +387,21 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Import result with success and error counts",
+                        "description": "Import result with success and failure counts",
                         "schema": {
-                            "$ref": "#/definitions/dto.ImportResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
@@ -234,10 +411,10 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Update container information by ID",
+                "description": "Update container information by container ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -257,7 +434,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Update data",
+                        "description": "Container update payload",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -270,19 +447,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Container updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
@@ -292,10 +469,10 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "View container list with pagination, filter, and sort",
+                "description": "Retrieve a list of containers with optional pagination, filtering, and sorting",
                 "produces": [
                     "application/json"
                 ],
@@ -336,7 +513,7 @@ const docTemplate = `{
                             "desc"
                         ],
                         "type": "string",
-                        "description": "Sort order (asc or desc)",
+                        "description": "Sort order",
                         "name": "order",
                         "in": "query"
                     }
@@ -345,19 +522,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Successful response with container list",
                         "schema": {
-                            "$ref": "#/definitions/dto.ViewResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
@@ -367,68 +544,71 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Send container management report via email to specified user",
+                "description": "Generates a container uptime/downtime report and sends it to the provided email address",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "report"
+                    "Report"
                 ],
-                "summary": "Send email report to user",
+                "summary": "Send container status report via email",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Email address to send report to",
+                        "description": "Recipient email address",
                         "name": "email",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Start time for report",
+                        "description": "Start time in RFC3339 format (e.g. 2025-07-01T00:00:00Z)",
                         "name": "start_time",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End time for report (defaults to now)",
+                        "description": "End time in RFC3339 format (defaults to current time)",
                         "name": "end_time",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Email sent successfully",
+                        "description": "Report emailed successfully",
                         "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad request",
+                        "description": "Invalid input or time range",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Failed to retrieve data or send email",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
             }
         },
-        "/users/delete/{id}": {
+        "/users/delete": {
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Remove a user from the system (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -438,190 +618,42 @@ const docTemplate = `{
                 "summary": "Delete a user",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
+                        "description": "User ID to delete",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.DeleteRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "User deleted successfully",
                         "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/login": {
-            "post": {
-                "description": "Login and receive JWT token",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Login with username and password",
-                "parameters": [
-                    {
-                        "description": "User login credentials",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.LoginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Login successful",
-                        "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
             }
         },
-        "/users/register": {
-            "post": {
-                "description": "Register a user and return a JWT token",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Register a new user",
-                "parameters": [
-                    {
-                        "description": "User registration request",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.RegisterRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "User registered successfully",
-                        "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/update/password/{id}": {
+        "/users/update/role": {
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Update password of currently logged-in user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Update own password",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "New password",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.UpdatePasswordRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Password updated successfully",
-                        "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/update/role/{id}": {
-            "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update role of a user (admin only)",
@@ -637,14 +669,7 @@ const docTemplate = `{
                 "summary": "Update a user's role",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "New role",
+                        "description": "User ID and new role",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -657,29 +682,29 @@ const docTemplate = `{
                     "200": {
                         "description": "Role updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
             }
         },
-        "/users/update/scope/{id}": {
+        "/users/update/scope": {
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update permission scope of a user (admin only)",
@@ -695,14 +720,7 @@ const docTemplate = `{
                 "summary": "Update a user's scope",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "New scope configuration",
+                        "description": "User ID, scopes, and whether to add or remove",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -715,19 +733,19 @@ const docTemplate = `{
                     "200": {
                         "description": "Scope updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/dto.MessageResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.APIResponse"
                         }
                     }
                 }
@@ -735,8 +753,29 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.APIResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "data": {},
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "dto.ContainerUpdate": {
             "type": "object",
+            "required": [
+                "status"
+            ],
             "properties": {
                 "status": {
                     "enum": [
@@ -766,34 +805,14 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.ErrorResponse": {
+        "dto.DeleteRequest": {
             "type": "object",
+            "required": [
+                "user_id"
+            ],
             "properties": {
-                "error": {
+                "user_id": {
                     "type": "string"
-                }
-            }
-        },
-        "dto.ImportResponse": {
-            "type": "object",
-            "properties": {
-                "failed_containers": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "failed_count": {
-                    "type": "integer"
-                },
-                "success_containers": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "success_count": {
-                    "type": "integer"
                 }
             }
         },
@@ -808,14 +827,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.MessageResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
                     "type": "string"
                 }
             }
@@ -846,7 +857,10 @@ const docTemplate = `{
         "dto.UpdatePasswordRequest": {
             "type": "object",
             "properties": {
-                "password": {
+                "current_password": {
+                    "type": "string"
+                },
+                "new_password": {
                     "type": "string"
                 }
             }
@@ -854,18 +868,23 @@ const docTemplate = `{
         "dto.UpdateRoleRequest": {
             "type": "object",
             "required": [
-                "role"
+                "role",
+                "user_id"
             ],
             "properties": {
                 "role": {
                     "$ref": "#/definitions/entities.UserRole"
+                },
+                "user_id": {
+                    "type": "string"
                 }
             }
         },
         "dto.UpdateScopeRequest": {
             "type": "object",
             "required": [
-                "scopes"
+                "scopes",
+                "user_id"
             ],
             "properties": {
                 "is_added": {
@@ -876,42 +895,8 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "dto.ViewResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/entities.Container"
-                    }
                 },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "entities.Container": {
-            "type": "object",
-            "properties": {
-                "containerId": {
-                    "type": "string"
-                },
-                "containerName": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "ipv4": {
-                    "type": "string"
-                },
-                "status": {
-                    "$ref": "#/definitions/entities.ContainerStatus"
-                },
-                "updatedAt": {
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -940,7 +925,7 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "ApiKeyAuth": {
+        "BearerAuth": {
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

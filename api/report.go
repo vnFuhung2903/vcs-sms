@@ -29,17 +29,17 @@ func (h *ReportHandler) SetupRoutes(r *gin.Engine) {
 }
 
 // SendEmail godoc
-// @Summary Send email report to user
-// @Description Send container management report via email to specified user
-// @Tags report
+// @Summary Send container status report via email
+// @Description Generates a container uptime/downtime report and sends it to the provided email address
+// @Tags Report
 // @Produce json
-// @Param email query string true "Email address to send report to"
-// @Param start_time query string false "Start time for report"
-// @Param end_time query string false "End time for report (defaults to now)"
-// @Success 200 {object} dto.MessageResponse "Email sent successfully"
-// @Failure 400 {object} dto.APIResponse "Bad request"
-// @Failure 500 {object} dto.APIResponse "Internal server error"
-// @Security ApiKeyAuth
+// @Param email query string true "Recipient email address"
+// @Param start_time query string false "Start time in RFC3339 format (e.g. 2025-07-01T00:00:00Z)"
+// @Param end_time query string false "End time in RFC3339 format (defaults to current time)"
+// @Success 200 {object} dto.APIResponse "Report emailed successfully"
+// @Failure 400 {object} dto.APIResponse "Invalid input or time range"
+// @Failure 500 {object} dto.APIResponse "Failed to retrieve data or send email"
+// @Security BearerAuth
 // @Router /report/mail [get]
 func (h *ReportHandler) SendEmail(c *gin.Context) {
 	var req dto.ReportRequest

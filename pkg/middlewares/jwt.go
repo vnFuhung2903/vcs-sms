@@ -64,7 +64,7 @@ func (m *jwtMiddleware) RequireScope(requiredScope string) gin.HandlerFunc {
 			}
 		}
 
-		if found := slices.Contains(tokens, requiredScope); !found {
+		if found := (slices.Contains(tokens, requiredScope) || requiredScope == ""); !found {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient scope"})
 			c.Abort()
 			return

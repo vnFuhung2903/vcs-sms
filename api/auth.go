@@ -24,22 +24,26 @@ func (h *AuthHandler) SetupRoutes(r *gin.Engine) {
 	{
 		authRoutes.POST("/register", h.Register)
 		authRoutes.POST("/login", h.Login)
-		authRoutes.PUT("/update/password/:userId", h.UpdatePassword)
-		authRoutes.POST("/refresh/:userId", h.RefreshAccessToken)
+
+		authRequiredGroup := authRoutes.Group("", h.jwtMiddleware.RequireScope(""))
+		{
+			authRequiredGroup.PUT("/update/password", h.UpdatePassword)
+			authRequiredGroup.POST("/refresh", h.RefreshAccessToken)
+		}
 	}
 }
 
 // Register godoc
 // @Summary Register a new user
 // @Description Register a user and return a JWT token
-// @Tags users
+// @Tags auth
 // @Accept json
 // @Produce json
 // @Param body body dto.RegisterRequest true "User registration request"
-// @Success 200 {object} dto.MessageResponse "User registered successfully"
+// @Success 201 {object} dto.APIResponse "User registered successfully"
 // @Failure 400 {object} dto.APIResponse "Bad request"
 // @Failure 500 {object} dto.APIResponse "Internal server error"
-// @Router /users/register [post]
+// @Router /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -73,15 +77,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // Login godoc
 // @Summary Login with username and password
 // @Description Login and receive JWT token
-// @Tags users
+// @Tags auth
 // @Accept json
 // @Produce json
 // @Param body body dto.LoginRequest true "User login credentials"
-// @Success 200 {object} dto.MessageResponse "Login successful"
+// @Success 200 {object} dto.APIResponse "Login successful"
 // @Failure 400 {object} dto.APIResponse "Bad request"
-// @Failure 401 {object} dto.APIResponse "Unauthorized"
 // @Failure 500 {object} dto.APIResponse "Internal server error"
-// @Router /users/login [post]
+// @Router /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -117,19 +120,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 // UpdatePassword godoc
 // @Summary Update own password
-// @Description Update password of currently logged-in user
-// @Tags users
+// @Description Update the password of the currently authenticated user
+// @Tags auth
 // @Accept json
 // @Produce json
-// @Param id path string true "User ID"
-// @Param body body dto.UpdatePasswordRequest true "New password"
-// @Success 200 {object} dto.MessageResponse "Password updated successfully"
+// @Param body body dto.UpdatePasswordRequest true "New password request"
+// @Success 200 {object} dto.APIResponse "Password updated successfully"
 // @Failure 400 {object} dto.APIResponse "Bad request"
 // @Failure 500 {object} dto.APIResponse "Internal server error"
-// @Security ApiKeyAuth
-// @Router /users/update/password/{id} [put]
+// @Security BearerAuth
+// @Router /auth/update/password [put]
 func (h *AuthHandler) UpdatePassword(c *gin.Context) {
-	userId := c.Param("userId")
+	userId := c.GetString("userId")
 	var req dto.UpdatePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, dto.APIResponse{
@@ -158,8 +160,18 @@ func (h *AuthHandler) UpdatePassword(c *gin.Context) {
 	})
 }
 
+// RefreshAccessToken godoc
+// @Summary Refresh access token
+// @Description Refresh the access token for the currently authenticated user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} dto.APIResponse "Access token refreshed successfully"
+// @Failure 500 {object} dto.APIResponse "Internal server error"
+// @Security BearerAuth
+// @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshAccessToken(c *gin.Context) {
-	userId := c.Param("userId")
+	userId := c.GetString("userId")
 	accessToken, err := h.authService.RefreshAccessToken(c.Request.Context(), userId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
