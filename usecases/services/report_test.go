@@ -120,27 +120,28 @@ func (s *ReportServiceSuite) TestSendEmailTemplateExecutionError() {
 }
 
 func (s *ReportServiceSuite) TestCalculateReportStatistic() {
-	endTime := time.Now()
+	baseTime := time.Now()
+	endTime := baseTime
 	startTime := endTime.Add(-4 * time.Hour)
 	statusList := map[string][]dto.EsStatus{
 		"container1": {
-			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: time.Now().Add(-210 * time.Minute)},
-			{ContainerId: "container1", Status: entities.ContainerOff, Uptime: int64(1800), LastUpdated: time.Now().Add(-3 * time.Hour)},
-			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: time.Now().Add(-2 * time.Hour)},
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-210 * time.Minute)},
+			{ContainerId: "container1", Status: entities.ContainerOff, Uptime: int64(1800), LastUpdated: baseTime.Add(-3 * time.Hour)},
+			{ContainerId: "container1", Status: entities.ContainerOn, Uptime: int64(3600), LastUpdated: baseTime.Add(-2 * time.Hour)},
 		},
 		"container2": {
-			{ContainerId: "container2", Status: entities.ContainerOff, Uptime: int64(7200), LastUpdated: time.Now().Add(-1 * time.Minute)},
+			{ContainerId: "container2", Status: entities.ContainerOff, Uptime: int64(7200), LastUpdated: baseTime.Add(-1 * time.Minute)},
 		},
 		"container3": {},
 	}
 
 	overlapStatusList := map[string][]dto.EsStatus{
 		"container1": {
-			{ContainerId: "container1", Status: entities.ContainerOff, Uptime: int64(7200), LastUpdated: time.Now()},
+			{ContainerId: "container1", Status: entities.ContainerOff, Uptime: int64(7200), LastUpdated: baseTime},
 		},
 		"container2": {},
 		"container3": {
-			{ContainerId: "container3", Status: entities.ContainerOn, Uptime: int64(1800), LastUpdated: time.Now()},
+			{ContainerId: "container3", Status: entities.ContainerOn, Uptime: int64(1800), LastUpdated: baseTime},
 		},
 	}
 

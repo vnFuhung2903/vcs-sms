@@ -20,13 +20,13 @@ func TestRedisClient(t *testing.T) {
 
 	redisClient := NewRedisClient(rds)
 
-	err := redisClient.Set(context.Background(), "test_key", "test_value", time.Hour)
-	assert.Error(t, err)
+	err := redisClient.Set(context.Background(), "test-key", "test-value", time.Hour)
+	assert.NoError(t, err)
 
-	value, err := redisClient.Get(context.Background(), "test_key")
-	assert.Error(t, err)
-	assert.Equal(t, "", value)
+	value, err := redisClient.Get(context.Background(), "test-key")
+	assert.NoError(t, err)
+	assert.Equal(t, "test-value", value)
 
-	err = redisClient.Del(context.Background(), "test_key")
-	assert.Error(t, err)
+	err = redisClient.Del(context.Background(), "test-key")
+	assert.NoError(t, err)
 }
