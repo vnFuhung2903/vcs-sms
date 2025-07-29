@@ -305,13 +305,36 @@ paths:
         in: query
         name: to
         type: integer
-      - description: Filter by status
+      - description: Filter by ContainerId
+        in: query
+        name: container_id
+        type: string
+      - description: Filter by ContainerName
+        in: query
+        name: container_name
+        type: string
+      - description: Filter by Status
+        enum:
+        - "ON"
+        - "OFF"
         in: query
         name: status
         type: string
+      - description: Filter by IPv4
+        in: query
+        name: ipv4
+        type: string
       - description: Sort by field
+        enum:
+        - container_id
+        - container_name
+        - status
+        - ipv4
+        - created_at
+        - updated_at
         in: query
         name: field
+        required: true
         type: string
       - description: Sort order
         enum:
@@ -319,6 +342,7 @@ paths:
         - desc
         in: query
         name: order
+        required: true
         type: string
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
@@ -423,13 +447,36 @@ paths:
         in: query
         name: to
         type: integer
-      - description: Filter by status
+      - description: Filter by ContainerId
+        in: query
+        name: container_id
+        type: string
+      - description: Filter by ContainerName
+        in: query
+        name: container_name
+        type: string
+      - description: Filter by Status
+        enum:
+        - "ON"
+        - "OFF"
         in: query
         name: status
         type: string
+      - description: Filter by IPv4
+        in: query
+        name: ipv4
+        type: string
       - description: Sort by field
+        enum:
+        - container_id
+        - container_name
+        - status
+        - ipv4
+        - created_at
+        - updated_at
         in: query
         name: field
+        required: true
         type: string
       - description: Sort order
         enum:
@@ -437,6 +484,7 @@ paths:
         - desc
         in: query
         name: order
+        required: true
         type: string
       produces:
       - application/json
@@ -468,11 +516,12 @@ paths:
         name: email
         required: true
         type: string
-      - description: Start time in RFC3339 format (e.g. 2025-07-01T00:00:00Z)
+      - description: Start date (e.g. 2006-01-02)
         in: query
         name: start_time
+        required: true
         type: string
-      - description: End time in RFC3339 format (defaults to current time)
+      - description: End date (defaults to current time)
         in: query
         name: end_time
         type: string

@@ -7,9 +7,9 @@ import (
 )
 
 type ReportRequest struct {
-	StartTime time.Time `form:"start_time" binding:"required"`
-	EndTime   time.Time `form:"end_time"`
-	Email     string    `form:"email" binding:"required,email"`
+	StartTime string `form:"start_time" binding:"required"`
+	EndTime   string `form:"end_time"`
+	Email     string `form:"email" binding:"required,email"`
 }
 
 type ReportResponse struct {

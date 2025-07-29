@@ -107,8 +107,8 @@ func (s *ReportHandlerSuite) TestSendEmail() {
 
 	params := url.Values{}
 	params.Set("email", "test@example.com")
-	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
-	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+	params.Set("start_time", startTime.UTC().Format("2006-01-02"))
+	params.Set("end_time", endTime.UTC().Format("2006-01-02"))
 
 	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
 	w := httptest.NewRecorder()
@@ -132,6 +132,15 @@ func (s *ReportHandlerSuite) TestSendEmailInvalidQueryBinding() {
 
 	var response dto.APIResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
+	s.NoError(err)
+	s.NotEmpty(response.Error)
+
+	req = httptest.NewRequest("GET", "/report/mail?start_time=2006-01-02&end_time=invalid-datetime", nil)
+	w = httptest.NewRecorder()
+	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusBadRequest, w.Code)
+
+	err = json.Unmarshal(w.Body.Bytes(), &response)
 	s.NoError(err)
 	s.NotEmpty(response.Error)
 }
@@ -185,8 +194,8 @@ func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceError() {
 
 	params := url.Values{}
 	params.Set("email", "test@example.com")
-	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
-	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+	params.Set("start_time", startTime.UTC().Format("2006-01-02"))
+	params.Set("end_time", endTime.UTC().Format("2006-01-02"))
 
 	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
 	w := httptest.NewRecorder()
@@ -230,8 +239,8 @@ func (s *ReportHandlerSuite) TestSendEmailHealthcheckServiceOverlapError() {
 
 	params := url.Values{}
 	params.Set("email", "test@example.com")
-	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
-	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+	params.Set("start_time", startTime.UTC().Format("2006-01-02"))
+	params.Set("end_time", endTime.UTC().Format("2006-01-02"))
 
 	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
 	w := httptest.NewRecorder()
@@ -287,8 +296,8 @@ func (s *ReportHandlerSuite) TestSendEmailSendEmailServiceError() {
 
 	params := url.Values{}
 	params.Set("email", "test@example.com")
-	params.Set("start_time", startTime.UTC().Format(time.RFC3339))
-	params.Set("end_time", endTime.UTC().Format(time.RFC3339))
+	params.Set("start_time", startTime.UTC().Format("2006-01-02"))
+	params.Set("end_time", endTime.UTC().Format("2006-01-02"))
 
 	req := httptest.NewRequest("GET", "/report/mail?"+params.Encode(), nil)
 	w := httptest.NewRecorder()

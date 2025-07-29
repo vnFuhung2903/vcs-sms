@@ -95,9 +95,12 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 // @Produce json
 // @Param from query int false "From index (default 1)" default(1)
 // @Param to query int false "To index (default -1 for all)" default(-1)
-// @Param status query string false "Filter by status"
-// @Param field query string false "Sort by field"
-// @Param order query string false "Sort order" Enums(asc, desc)
+// @Param container_id query string false "Filter by ContainerId"
+// @Param container_name query string false "Filter by ContainerName"
+// @Param status query string false "Filter by Status" Enums(ON, OFF)
+// @Param ipv4 query string false "Filter by IPv4"
+// @Param field query string true "Sort by field" Enums(container_id, container_name, status, ipv4, created_at, updated_at)
+// @Param order query string true "Sort order" Enums(asc, desc)
 // @Success 200 {object} dto.APIResponse "Successful response with container list"
 // @Failure 400 {object} dto.APIResponse "Bad request"
 // @Failure 500 {object} dto.APIResponse "Internal server error"
@@ -295,9 +298,12 @@ func (h *ContainerHandler) Import(c *gin.Context) {
 // @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 // @Param from query int false "From index (default 1)" default(1)
 // @Param to query int false "To index (default -1 for all)" default(-1)
-// @Param status query string false "Filter by status"
-// @Param field query string false "Sort by field"
-// @Param order query string false "Sort order" Enums(asc, desc)
+// @Param container_id query string false "Filter by ContainerId"
+// @Param container_name query string false "Filter by ContainerName"
+// @Param status query string false "Filter by Status" Enums(ON, OFF)
+// @Param ipv4 query string false "Filter by IPv4"
+// @Param field query string true "Sort by field" Enums(container_id, container_name, status, ipv4, created_at, updated_at)
+// @Param order query string true "Sort order" Enums(asc, desc)
 // @Success 200 {file} file "Excel file containing container data"
 // @Failure 400 {object} dto.APIResponse "Bad request"
 // @Failure 500 {object} dto.APIResponse "Internal server error"

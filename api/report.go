@@ -34,8 +34,8 @@ func (h *ReportHandler) SetupRoutes(r *gin.Engine) {
 // @Tags Report
 // @Produce json
 // @Param email query string true "Recipient email address"
-// @Param start_time query string false "Start time in RFC3339 format (e.g. 2025-07-01T00:00:00Z)"
-// @Param end_time query string false "End time in RFC3339 format (defaults to current time)"
+// @Param start_time query string true "Start date (e.g. 2006-01-02)"
+// @Param end_time query string false "End date (defaults to current time)"
 // @Success 200 {object} dto.APIResponse "Report emailed successfully"
 // @Failure 400 {object} dto.APIResponse "Invalid input or time range"
 // @Failure 500 {object} dto.APIResponse "Failed to retrieve data or send email"
@@ -53,11 +53,34 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	if req.EndTime.IsZero() {
-		req.EndTime = time.Now()
+	startTime, err := time.Parse(time.RFC3339, req.StartTime+"T00:00:00Z")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid start time format",
+			Error:   err.Error(),
+		})
+		return
 	}
 
-	if req.StartTime.After(req.EndTime) {
+	var endTime time.Time
+	if req.EndTime == "" {
+		endTime = time.Now()
+	} else {
+		endTime, err = time.Parse(time.RFC3339, req.EndTime+"T23:59:59Z")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, dto.APIResponse{
+				Success: false,
+				Code:    "BAD_REQUEST",
+				Message: "Invalid start time format",
+				Error:   err.Error(),
+			})
+			return
+		}
+	}
+
+	if startTime.After(endTime) {
 		c.JSON(http.StatusBadRequest, dto.APIResponse{
 			Success: false,
 			Code:    "BAD_REQUEST",
@@ -85,7 +108,7 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		ids = append(ids, container.ContainerId)
 	}
 
-	statusList, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 10000, req.StartTime, req.EndTime, dto.Asc)
+	statusList, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 10000, startTime, endTime, dto.Asc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
@@ -96,7 +119,7 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	overlapStatusList, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 1, req.EndTime, time.Now(), dto.Asc)
+	overlapStatusList, err := h.healthcheckService.GetEsStatus(c.Request.Context(), ids, 1, endTime, time.Now(), dto.Asc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
@@ -107,9 +130,9 @@ func (h *ReportHandler) SendEmail(c *gin.Context) {
 		return
 	}
 
-	onCount, offCount, totalUptime := h.reportService.CalculateReportStatistic(statusList, overlapStatusList, req.StartTime, req.EndTime)
+	onCount, offCount, totalUptime := h.reportService.CalculateReportStatistic(statusList, overlapStatusList, startTime, endTime)
 
-	if err := h.reportService.SendEmail(c.Request.Context(), req.Email, int(total), onCount, offCount, totalUptime, req.StartTime, req.EndTime); err != nil {
+	if err := h.reportService.SendEmail(c.Request.Context(), req.Email, int(total), onCount, offCount, totalUptime, startTime, endTime); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.APIResponse{
 			Success: false,
 			Code:    "INTERNAL_SERVER_ERROR",

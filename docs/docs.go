@@ -315,15 +315,46 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by status",
+                        "description": "Filter by ContainerId",
+                        "name": "container_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by ContainerName",
+                        "name": "container_name",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ON",
+                            "OFF"
+                        ],
+                        "type": "string",
+                        "description": "Filter by Status",
                         "name": "status",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "description": "Filter by IPv4",
+                        "name": "ipv4",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "container_id",
+                            "container_name",
+                            "status",
+                            "ipv4",
+                            "created_at",
+                            "updated_at"
+                        ],
+                        "type": "string",
                         "description": "Sort by field",
                         "name": "field",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "enum": [
@@ -333,7 +364,8 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Sort order",
                         "name": "order",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -497,15 +529,46 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by status",
+                        "description": "Filter by ContainerId",
+                        "name": "container_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by ContainerName",
+                        "name": "container_name",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ON",
+                            "OFF"
+                        ],
+                        "type": "string",
+                        "description": "Filter by Status",
                         "name": "status",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "description": "Filter by IPv4",
+                        "name": "ipv4",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "container_id",
+                            "container_name",
+                            "status",
+                            "ipv4",
+                            "created_at",
+                            "updated_at"
+                        ],
+                        "type": "string",
                         "description": "Sort by field",
                         "name": "field",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "enum": [
@@ -515,7 +578,8 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Sort order",
                         "name": "order",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -565,13 +629,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Start time in RFC3339 format (e.g. 2025-07-01T00:00:00Z)",
+                        "description": "Start date (e.g. 2006-01-02)",
                         "name": "start_time",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
-                        "description": "End time in RFC3339 format (defaults to current time)",
+                        "description": "End date (defaults to current time)",
                         "name": "end_time",
                         "in": "query"
                     }
