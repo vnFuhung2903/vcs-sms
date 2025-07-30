@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -43,88 +44,93 @@ func (s *HealthcheckService) UpdateStatus(ctx context.Context, statusList []dto.
 
 	endTime := time.Now()
 	startTime := endTime.Add(-interval)
+	var zeroTime time.Time
+
 	existingDocs, err := s.GetEsStatus(ctx, ids, 1, startTime, endTime, dto.Dsc)
 	if err != nil {
 		return err
 	}
-
-	var metaLine, docLine []byte
+	previousDocs, err := s.GetEsStatus(ctx, ids, 1, zeroTime, startTime, dto.Dsc)
+	if err != nil {
+		return err
+	}
 
 	for _, status := range statusList {
+		var (
+			meta interface{}
+			doc  interface{}
+		)
+
 		old := existingDocs[status.ContainerId]
-		if len(old) == 0 {
-			meta := map[string]map[string]string{
+		previous := previousDocs[status.ContainerId]
+
+		switch {
+		case len(old) == 0:
+			nextCounter := int64(0)
+			if len(previous) > 0 {
+				nextCounter = previous[0].Counter + 1
+			}
+			meta = map[string]map[string]string{
 				"index": {
 					"_index": indexName,
-					"_id":    status.ContainerId,
+					"_id":    fmt.Sprintf("%s_%d", status.ContainerId, nextCounter),
 				},
 			}
-
-			metaLine, err = json.Marshal(meta)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-			docLine, err = json.Marshal(dto.EsStatus{
+			doc = dto.EsStatus{
 				ContainerId: status.ContainerId,
 				Status:      status.Status,
-				LastUpdated: time.Now().UTC().Truncate(time.Second),
-				Uptime:      0,
-			})
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
+				LastUpdated: endTime,
+				Uptime:      int64(interval.Seconds()),
+				Counter:     nextCounter,
 			}
-		} else if old[0].Status == status.Status {
-			update := map[string]interface{}{
-				"doc": map[string]interface{}{
-					"uptime":       old[0].Uptime + int64(time.Since(old[0].LastUpdated).Seconds()),
-					"last_updated": time.Now().UTC().Truncate(time.Second),
-				},
-			}
-			meta := map[string]map[string]string{
+
+		case old[0].Status == status.Status:
+			meta = map[string]map[string]string{
 				"update": {
 					"_index": indexName,
-					"_id":    status.ContainerId,
+					"_id":    fmt.Sprintf("%s_%d", status.ContainerId, old[0].Counter),
+				},
+			}
+			doc = map[string]interface{}{
+				"doc": map[string]interface{}{
+					"uptime":       old[0].Uptime + int64(endTime.Sub(old[0].LastUpdated).Seconds()),
+					"last_updated": endTime,
 				},
 			}
 
-			metaLine, err = json.Marshal(meta)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-			docLine, err = json.Marshal(update)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-		} else {
-			newDoc := dto.EsStatus{
-				ContainerId: status.ContainerId,
-				Status:      status.Status,
-				Uptime:      int64(time.Since(old[0].LastUpdated)),
-				LastUpdated: time.Now(),
-			}
-			meta := map[string]map[string]string{
+		default:
+			nextCounter := old[0].Counter + 1
+			meta = map[string]map[string]string{
 				"index": {
 					"_index": indexName,
-					"_id":    status.ContainerId,
+					"_id":    fmt.Sprintf("%s_%d", status.ContainerId, nextCounter),
 				},
 			}
-
-			metaLine, err = json.Marshal(meta)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
-			}
-			docLine, err = json.Marshal(newDoc)
-			if err != nil {
-				s.logger.Error("failed to create json", zap.Error(err))
+			doc = dto.EsStatus{
+				ContainerId: status.ContainerId,
+				Status:      status.Status,
+				Uptime:      int64(endTime.Sub(old[0].LastUpdated).Seconds()),
+				LastUpdated: endTime,
+				Counter:     nextCounter,
 			}
 		}
 
-		if err == nil {
-			buf.Write(metaLine)
-			buf.WriteByte('\n')
-			buf.Write(docLine)
-			buf.WriteByte('\n')
+		metaLine, err := json.Marshal(meta)
+		if err != nil {
+			s.logger.Error("failed to marshal meta", zap.Error(err))
+			continue
 		}
+
+		docLine, err := json.Marshal(doc)
+		if err != nil {
+			s.logger.Error("failed to marshal doc", zap.Error(err))
+			continue
+		}
+
+		buf.Write(metaLine)
+		buf.WriteByte('\n')
+		buf.Write(docLine)
+		buf.WriteByte('\n')
 	}
 
 	req := esapi.BulkRequest{
@@ -167,7 +173,7 @@ func (s *HealthcheckService) GetEsStatus(ctx context.Context, ids []string, limi
 			},
 			"size": limit,
 			"sort": []interface{}{
-				map[string]interface{}{"last_updated": map[string]string{"order": string(order)}},
+				map[string]interface{}{"counter": map[string]string{"order": string(order)}},
 			},
 		}
 		queryLine, _ := json.Marshal(query)

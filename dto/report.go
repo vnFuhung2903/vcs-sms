@@ -26,6 +26,7 @@ type EsStatus struct {
 	Status      entities.ContainerStatus `json:"status"`
 	Uptime      int64                    `json:"uptime"`
 	LastUpdated time.Time                `json:"last_updated"`
+	Counter     int64                    `json:"counter"`
 }
 
 type EsStatusUpdate struct {
