@@ -146,7 +146,7 @@ func (s *ReportHandlerSuite) TestSendEmailInvalidQueryBinding() {
 }
 
 func (s *ReportHandlerSuite) TestSendEmailInvalidDateRange() {
-	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2024-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z", nil)
+	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2024-01-01&end_time=2023-01-02s", nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)
@@ -163,7 +163,7 @@ func (s *ReportHandlerSuite) TestSendEmailContainerServiceError() {
 		View(gomock.Any(), dto.ContainerFilter{}, 1, -1, dto.ContainerSort{Field: "container_id", Order: dto.Asc}).
 		Return([]*entities.Container{}, int64(0), errors.New("container service error"))
 
-	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2023-01-01T00:00:00Z", nil)
+	req := httptest.NewRequest("GET", "/report/mail?email=test@example.com&start_time=2023-01-01", nil)
 	w := httptest.NewRecorder()
 
 	s.router.ServeHTTP(w, req)

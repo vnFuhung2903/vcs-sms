@@ -216,7 +216,7 @@ func (s *AuthHandlerSuite) TestUpdatePassword() {
 	}
 	jsonData, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("PUT", "/auth/update/password/test-user-id", bytes.NewBuffer(jsonData))
+	req := httptest.NewRequest("PUT", "/auth/update/password", bytes.NewBuffer(jsonData))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -231,7 +231,7 @@ func (s *AuthHandlerSuite) TestUpdatePassword() {
 }
 
 func (s *AuthHandlerSuite) TestUpdatePasswordInvalidRequestBody() {
-	req := httptest.NewRequest("PUT", "/auth/update/password/test-user-id", strings.NewReader("invalid json"))
+	req := httptest.NewRequest("PUT", "/auth/update/password", strings.NewReader("invalid json"))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -255,7 +255,7 @@ func (s *AuthHandlerSuite) TestUpdatePasswordServiceError() {
 	}
 	jsonData, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("PUT", "/auth/update/password/test-user-id", bytes.NewBuffer(jsonData))
+	req := httptest.NewRequest("PUT", "/auth/update/password", bytes.NewBuffer(jsonData))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -272,7 +272,7 @@ func (s *AuthHandlerSuite) TestRefreshAccessToken() {
 	accessToken := "test-access-token"
 	s.mockAuthService.EXPECT().RefreshAccessToken(gomock.Any(), "test-user-id").Return(accessToken, nil)
 
-	req := httptest.NewRequest("POST", "/auth/refresh/test-user-id", nil)
+	req := httptest.NewRequest("POST", "/auth/refresh", nil)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -297,7 +297,7 @@ func (s *AuthHandlerSuite) TestRefreshAccessToken() {
 func (s *AuthHandlerSuite) TestRefreshAccessTokenServiceError() {
 	s.mockAuthService.EXPECT().RefreshAccessToken(gomock.Any(), "test-user-id").Return("", errors.New("service error"))
 
-	req := httptest.NewRequest("POST", "/auth/refresh/test-user-id", nil)
+	req := httptest.NewRequest("POST", "/auth/refresh", nil)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 

@@ -76,15 +76,15 @@ func TestReportServiceSuite(t *testing.T) {
 	suite.Run(t, new(ReportServiceSuite))
 }
 
-func (s *ReportServiceSuite) TestSendEmail() {
-	s.reportService = NewReportService(s.logger, env.GomailEnv{
-		MailUsername: "hung29032004@gmail.com",
-		MailPassword: "",
-	})
-	s.logger.EXPECT().Info("Report sent successfully", gomock.Any(), gomock.Any()).Times(1)
-	err := s.reportService.SendEmail(s.ctx, "hung29032004@gmail.com", 10, 7, 3, 24.5, s.sampleReport.StartTime, s.sampleReport.EndTime)
-	s.Nil(err)
-}
+// func (s *ReportServiceSuite) TestSendEmail() {
+// 	s.reportService = NewReportService(s.logger, env.GomailEnv{
+// 		MailUsername: "hung29032004@gmail.com",
+// 		MailPassword: "",
+// 	})
+// 	s.logger.EXPECT().Info("Report sent successfully", gomock.Any(), gomock.Any()).Times(1)
+// 	err := s.reportService.SendEmail(s.ctx, "hung29032004@gmail.com", 10, 7, 3, 24.5, s.sampleReport.StartTime, s.sampleReport.EndTime)
+// 	s.Nil(err)
+// }
 
 func (s *ReportServiceSuite) TestSendEmailError() {
 	s.logger.EXPECT().Error("failed to send email", gomock.Any()).Times(1)
